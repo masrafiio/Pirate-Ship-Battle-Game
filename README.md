@@ -17,7 +17,6 @@ Computer Graphics (CSE423) Project
   * **Full Sail**: Maximum movement speed
 * **A / D** – Turn ship left or right (rotation on Z-axis)
 * The ship always moves forward in the direction it is facing
-* **Momentum System**: Ship does not stop instantly when sails are lowered, creating realistic movement
 
 ---
 
@@ -67,7 +66,7 @@ Computer Graphics (CSE423) Project
 
 ---
 
-### 6. Health System with Regeneration
+### 6. Health System
 
 * **Player Ship**: 100 HP
 * **Enemy Ships**: 30 HP each

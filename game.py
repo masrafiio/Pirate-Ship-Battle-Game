@@ -3,49 +3,46 @@ from OpenGL.GLUT import *
 from OpenGL.GLU import *
 import math
 
-# Camera-related variables
 camera_pos = (0, 500, 500)
 camera_distance = 500
-camera_angle = 0  # Angle around the ship
+camera_angle = 0
 
 fovY = 120  # Field of view
 GRID_LENGTH = 600  # Length of grid lines
 
-# Ship state variables
 ship_x = 0
 ship_y = 0
-ship_z = 50  # Ship height above water
-ship_rotation = 0  # Ship facing direction (0-360 degrees)
+ship_z = 50  #above water
+ship_rotation = 0  # Ship facing direction
 ship_speed = 0
-sail_state = 0  # 0 = no sail, 1 = half sail, 2 = full sail
+sail_state = 0
 
-# Speed constants
+bow_back_x = 147
+bow_tip_x = 210
+bow_width = 63
+bow_height = 35
+
+cannon_positions = [80, 30, -20, -70]
+cannon_length = 25
+cannon_offset = 80
+
 SPEED_NO_SAIL = 0
-SPEED_HALF_SAIL = 2
-SPEED_FULL_SAIL = 4
-TURN_SPEED = 2  # Degrees per frame
-MOMENTUM_DECAY = 0.95  # Speed decay when lowering sails
-
+SPEED_HALF_SAIL = 4
+SPEED_FULL_SAIL = 6 
+TURN_SPEED = 2
 
 def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glColor3f(1, 1, 1)
     glMatrixMode(GL_PROJECTION)
     glPushMatrix()
     glLoadIdentity()
-    
-    # Set up an orthographic projection that matches window coordinates
     gluOrtho2D(0, 1000, 0, 800)  # left, right, bottom, top
-    
     glMatrixMode(GL_MODELVIEW)
     glPushMatrix()
     glLoadIdentity()
-    
-    # Draw text at (x, y) in screen coordinates
     glRasterPos2f(x, y)
     for ch in text:
         glutBitmapCharacter(font, ord(ch))
-    
-    # Restore original projection and modelview matrices
     glPopMatrix()
     glMatrixMode(GL_PROJECTION)
     glPopMatrix()
@@ -54,35 +51,92 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
 
 def draw_ship():
     glPushMatrix()
-    
-    # Position ship at current location
     glTranslatef(ship_x, ship_y, ship_z)
-    glRotatef(ship_rotation, 0, 0, 1)  # Rotate ship to face direction
+    glRotatef(ship_rotation, 0, 0, 1)
     
-    # Draw hull (brown cuboid)
-    glColor3f(0.4, 0.2, 0.1)  # Brown color
+    #draw hull
+    glColor3f(0.4, 0.2, 0.1)
     glPushMatrix()
-    glScalef(2.5, 1.2, 0.8)  # Make hull elongated and larger
-    glutSolidCube(60)
+    glScalef(4.2, 1.8, 1.0)
+    glutSolidCube(70)
+    glPopMatrix()
+
+    #draw bow
+    glColor3f(0.35, 0.18, 0.09)
+    glBegin(GL_TRIANGLES)
+    # Bottom face - left triangle
+    glVertex3f(bow_tip_x, 0, -bow_height)      # Tip bottom
+    glVertex3f(bow_back_x, -bow_width, -bow_height)  # Back left bottom
+    glVertex3f(bow_back_x, bow_width, -bow_height)   # Back right bottom
+    
+    # Top face - triangle
+    glVertex3f(bow_tip_x, 0, bow_height)       # Tip top
+    glVertex3f(bow_back_x, bow_width, bow_height)    # Back right top
+    glVertex3f(bow_back_x, -bow_width, bow_height)   # Back left top
+    
+    # Left side face
+    glVertex3f(bow_tip_x, 0, -bow_height)      # Tip bottom
+    glVertex3f(bow_tip_x, 0, bow_height)       # Tip top
+    glVertex3f(bow_back_x, -bow_width, bow_height)   # Back left top
+    
+    glVertex3f(bow_tip_x, 0, -bow_height)      # Tip bottom
+    glVertex3f(bow_back_x, -bow_width, bow_height)   # Back left top
+    glVertex3f(bow_back_x, -bow_width, -bow_height)  # Back left bottom
+    
+    # Right side face
+    glVertex3f(bow_tip_x, 0, -bow_height)      # Tip bottom
+    glVertex3f(bow_back_x, bow_width, -bow_height)   # Back right bottom
+    glVertex3f(bow_back_x, bow_width, bow_height)    # Back right top
+    
+    glVertex3f(bow_tip_x, 0, -bow_height)      # Tip bottom
+    glVertex3f(bow_back_x, bow_width, bow_height)    # Back right top
+    glVertex3f(bow_tip_x, 0, bow_height)       # Tip top
+    glEnd()
+    
+    # Back face to connect with hull
+    glBegin(GL_QUADS)
+    glVertex3f(bow_back_x, -bow_width, -bow_height)  # Back left bottom
+    glVertex3f(bow_back_x, -bow_width, bow_height)   # Back left top
+    glVertex3f(bow_back_x, bow_width, bow_height)    # Back right top
+    glVertex3f(bow_back_x, bow_width, -bow_height)   # Back right bottom
+    glEnd()
+    
+    # Draw first mast - front
+    glColor3f(0.3, 0.3, 0.3)
+    glPushMatrix()
+    glTranslatef(70, 0, 35)
+    gluCylinder(gluNewQuadric(), 6, 6, 150, 10, 10)
     glPopMatrix()
     
-    # Draw mast (gray cylinder)
-    glColor3f(0.3, 0.3, 0.3)  # Gray color
+    # Draw second mast - rear
+    glColor3f(0.3, 0.3, 0.3)
     glPushMatrix()
-    glTranslatef(0, 0, 30)  # Position above hull
-    gluCylinder(gluNewQuadric(), 5, 5, 100, 10, 10)
+    glTranslatef(-70, 0, 35)
+    gluCylinder(gluNewQuadric(), 6, 6, 150, 10, 10)
     glPopMatrix()
     
-    # Draw sail based on sail_state (white quad)
+    # Draw sails
     if sail_state > 0:
-        glColor3f(0.9, 0.9, 0.9)  # White/light gray
+        glColor3f(0.9, 0.9, 0.9)
+        sail_width = 42 if sail_state == 1 else 60
+        sail_height = 48 if sail_state == 1 else 75
+        
+        # Front mast sail
         glPushMatrix()
-        glTranslatef(0, 0, 60)  # Position on mast
+        glTranslatef(70, 0, 90)
+        glRotatef(90, 0, 0, 1)
+        glBegin(GL_QUADS)
+        glVertex3f(-sail_width, 0, sail_height)
+        glVertex3f(sail_width, 0, sail_height)
+        glVertex3f(sail_width, 0, 0)
+        glVertex3f(-sail_width, 0, 0)
+        glEnd()
+        glPopMatrix()
         
-        # Sail size depends on sail state
-        sail_width = 35 if sail_state == 1 else 50
-        sail_height = 40 if sail_state == 1 else 65
-        
+        # Rear mast sail
+        glPushMatrix()
+        glTranslatef(-70, 0, 90)
+        glRotatef(90, 0, 0, 1)
         glBegin(GL_QUADS)
         glVertex3f(-sail_width, 0, sail_height)
         glVertex3f(sail_width, 0, sail_height)
@@ -91,19 +145,20 @@ def draw_ship():
         glEnd()
         glPopMatrix()
     
-    # Draw cannons (small cylinders on sides)
-    glColor3f(0.2, 0.2, 0.2)  # Dark gray
-    glPushMatrix()
-    glTranslatef(0, 40, 15)  # Left side
-    glRotatef(90, 1, 0, 0)
-    gluCylinder(gluNewQuadric(), 3, 3, 15, 8, 8)
-    glPopMatrix()
-    
-    glPushMatrix()
-    glTranslatef(0, -40, 15)  # Right side
-    glRotatef(90, 1, 0, 0)
-    gluCylinder(gluNewQuadric(), 3, 3, 15, 8, 8)
-    glPopMatrix()
+    # Draw cannons
+    glColor3f(0.2, 0.2, 0.2)
+    for x_pos in cannon_positions:
+        glPushMatrix()
+        glTranslatef(x_pos, cannon_offset, 10)
+        glRotatef(90, 1, 0, 0)
+        gluCylinder(gluNewQuadric(), 4, 4, cannon_length, 8, 8)
+        glPopMatrix()
+        
+        glPushMatrix()
+        glTranslatef(x_pos, -cannon_offset, 10)
+        glRotatef(-90, 1, 0, 0)
+        gluCylinder(gluNewQuadric(), 4, 4, cannon_length, 8, 8)
+        glPopMatrix()
     
     glPopMatrix()
 
@@ -123,9 +178,9 @@ def draw_ocean():
         for j in range(ship_tile_y - tiles, ship_tile_y + tiles):
             # Alternate colors for checkerboard pattern
             if (i + j) % 2 == 0:
-                glColor3f(0.0, 0.3, 0.5)  # Darker blue
+                glColor3f(0.2, 0.6, 0.8)  # Brighter blue
             else:
-                glColor3f(0.0, 0.4, 0.6)  # Lighter blue
+                glColor3f(0.3, 0.7, 0.9)  # Even brighter blue
             
             x1 = i * tile_size
             y1 = j * tile_size
@@ -145,23 +200,13 @@ def draw_ocean():
 def update_ship_movement():
     global ship_x, ship_y, ship_speed
     
-    # Target speed based on sail state
     if sail_state == 0:
-        target_speed = SPEED_NO_SAIL
+        ship_speed = SPEED_NO_SAIL
     elif sail_state == 1:
-        target_speed = SPEED_HALF_SAIL
+        ship_speed = SPEED_HALF_SAIL
     else:
-        target_speed = SPEED_FULL_SAIL
+        ship_speed = SPEED_FULL_SAIL
     
-    # Apply momentum - gradually adjust to target speed
-    if ship_speed > target_speed:
-        ship_speed *= MOMENTUM_DECAY
-        if ship_speed < 0.1:
-            ship_speed = 0
-    else:
-        ship_speed = target_speed
-    
-    # Move ship forward in the direction it's facing
     if ship_speed > 0:
         rad = math.radians(ship_rotation)
         ship_x += ship_speed * math.cos(rad)
@@ -263,10 +308,6 @@ def showScreen():
     draw_ocean()
     draw_ship()
     draw_text(10, 770, f"Sail State: {['No Sail', 'Half Sail', 'Full Sail'][sail_state]}")
-    draw_text(10, 740, f"Speed: {ship_speed:.1f}")
-    draw_text(10, 710, f"Position: ({ship_x:.0f}, {ship_y:.0f})")
-    draw_text(10, 680, f"Rotation: {ship_rotation:.0f}°")
-    draw_text(10, 620, "Controls: W/S - Sails | A/D - Turn | Arrows - Camera | R - Reset")
     glutSwapBuffers()
 
 keys_pressed = set()
