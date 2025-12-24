@@ -50,7 +50,6 @@ Computer Graphics (CSE423) Project
 
 ### 4. Cannon System
 
-* **Q / E** – Aim left or right cannons
 * **Left Click** – Fire cannons
 * Reload cooldown of **1–2 seconds per side**
 * Cannonballs:
@@ -72,10 +71,6 @@ Computer Graphics (CSE423) Project
 
 * **Player Ship**: 100 HP
 * **Enemy Ships**: 30 HP each
-* Health regeneration:
-
-  * +2 HP per second
-  * Activates after 5 seconds without taking damage
 * Visual health indicator displayed as 2D text (top-right corner)
 * Ship sinks when HP reaches 0
 
