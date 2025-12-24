@@ -108,7 +108,38 @@ def draw_ship():
     glPopMatrix()
 
 
-
+def draw_ocean():
+    glPushMatrix()
+    # Draw ocean as multiple quads in a grid pattern
+    tile_size = 100
+    tiles = 30  # Number of tiles in each direction
+    
+    # Calculate which tile the ship is on
+    ship_tile_x = int(ship_x / tile_size)
+    ship_tile_y = int(ship_y / tile_size)
+    
+    # Draw tiles centered around the ship's position
+    for i in range(ship_tile_x - tiles, ship_tile_x + tiles):
+        for j in range(ship_tile_y - tiles, ship_tile_y + tiles):
+            # Alternate colors for checkerboard pattern
+            if (i + j) % 2 == 0:
+                glColor3f(0.0, 0.3, 0.5)  # Darker blue
+            else:
+                glColor3f(0.0, 0.4, 0.6)  # Lighter blue
+            
+            x1 = i * tile_size
+            y1 = j * tile_size
+            x2 = x1 + tile_size
+            y2 = y1 + tile_size
+            
+            glBegin(GL_QUADS)
+            glVertex3f(x1, y1, 0)
+            glVertex3f(x2, y1, 0)
+            glVertex3f(x2, y2, 0)
+            glVertex3f(x1, y2, 0)
+            glEnd()
+    
+    glPopMatrix()
 
 
 def update_ship_movement():
