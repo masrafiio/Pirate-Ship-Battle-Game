@@ -54,6 +54,9 @@ enemy_speed = 2.0  # Movement speed
 enemy_attack_range = 400  # Range to start firing
 enemy_optimal_distance = 300  # Distance to maintain from player
 enemy_fire_cooldown = 2.0  # Enemy firing cooldown
+# Aiming range indicator
+aiming_left = False  # Q key
+aiming_right = False  # E key
 
 bow_back_x = 147
 bow_tip_x = 210
@@ -142,6 +145,68 @@ def draw_enemy_ship(enemy):
         num_masts=1,
         sail_state_override=2  # Always full sail for enemy
     )
+def draw_range_indicator(direction):
+    """Draw a red line/arrow showing the max range of cannonballs
+    direction: 'left' for left side cannons, 'right' for right side cannons"""
+    
+    # Calculate the direction perpendicular to ship heading
+    rad = math.radians(ship_rotation)
+    forward_x = math.cos(rad)
+    forward_y = math.sin(rad)
+    
+    # Right side is 90 degrees clockwise from forward
+    right_x = math.sin(rad)
+    right_y = -math.cos(rad)
+    
+    # Determine the direction for the range indicator
+    if direction == 'right':
+        # Right side cannons fire to the right
+        dir_x = right_x
+        dir_y = right_y
+    else:
+        # Left side cannons fire to the left
+        dir_x = -right_x
+        dir_y = -right_y
+    
+    # Calculate start and end points of the range indicator
+    start_x = ship_x
+    start_y = ship_y
+    start_z = ship_z + 30  # Above the ship
+    
+    # End point is at maximum cannonball range
+    end_x = start_x + dir_x * cannonball_max_distance
+    end_y = start_y + dir_y * cannonball_max_distance
+    end_z = start_z
+    
+    # Draw the line in red
+    glColor3f(1.0, 0.0, 0.0)  # Red color
+    glLineWidth(2.0)
+    glBegin(GL_LINES)
+    glVertex3f(start_x, start_y, start_z)
+    glVertex3f(end_x, end_y, end_z)
+    glEnd()
+    glLineWidth(1.0)
+    
+    # Draw an arrowhead at the end point
+    arrow_size = 20
+    
+    # Create perpendicular vectors for the arrowhead
+    perp_x = -dir_y
+    perp_y = dir_x
+    
+    # Draw arrowhead triangle
+    glBegin(GL_TRIANGLES)
+    # Tip of arrow
+    glVertex3f(end_x, end_y, end_z)
+    # Back left of arrowhead
+    glVertex3f(end_x - dir_x * arrow_size + perp_x * arrow_size * 0.3, 
+               end_y - dir_y * arrow_size + perp_y * arrow_size * 0.3, 
+               end_z)
+    # Back right of arrowhead
+    glVertex3f(end_x - dir_x * arrow_size - perp_x * arrow_size * 0.3, 
+               end_y - dir_y * arrow_size - perp_y * arrow_size * 0.3, 
+               end_z)
+    glEnd()
 
 
 def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
@@ -867,6 +932,11 @@ def showScreen():
     # Draw enemy ships
     for enemy in enemies:
         draw_enemy_ship(enemy)
+    # Draw range indicator when aiming
+    if aiming_left:
+        draw_range_indicator('left')
+    if aiming_right:
+        draw_range_indicator('right')
     
     # Draw cannonballs
     for ball in cannonballs:
@@ -896,11 +966,26 @@ keys_pressed = set()
 
 def keyboard_down(key, x, y):
     keys_pressed.add(key)
+    
+    # Handle aiming
+    global aiming_left, aiming_right
+    if key == b'q':
+        aiming_left = True
+    elif key == b'e':
+        aiming_right = True
+    
     keyboardListener(key, x, y)
 
 def keyboard_up(key, x, y):
     if key in keys_pressed:
         keys_pressed.remove(key)
+    
+    # Handle aiming stop
+    global aiming_left, aiming_right
+    if key == b'q':
+        aiming_left = False
+    elif key == b'e':
+        aiming_right = False
 
 def update_continuous_keys():
     global ship_rotation
