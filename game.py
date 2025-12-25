@@ -36,8 +36,16 @@ ship_health = 100
 max_health = 100
 last_damage_time = 0
 ship_sinking = False
-sinking_speed = 0.5  # Speed at which ship sinks
-target_sink_depth = -35  # Half of ship height (ship will be half submerged)
+sinking_speed = 0.5
+target_sink_depth = -35
+
+# Cannon system
+cannonballs = []
+last_fire_time = 0
+fire_cooldown = 1.5
+cannonball_speed = 12.0
+cannonball_size = 8.0
+cannonball_max_distance = 800
 
 bow_back_x = 147
 bow_tip_x = 210
@@ -51,7 +59,6 @@ cannon_offset = 80
 SPEED_NO_SAIL = 0
 SPEED_HALF_SAIL = 4
 SPEED_FULL_SAIL = 6
-SPEED_HALF_SAIL_STORM_BOOST = 6  # Half sail gets speed boost during storm
 TURN_SPEED = 2
 
 def initialize_rain():
@@ -103,6 +110,15 @@ def update_rain():
             # Keep rain drops relative to ship position
             drop[0] = ship_x + random.uniform(-1000, 1000)
             drop[1] = ship_y + random.uniform(-1000, 1000)
+
+
+def draw_cannonball(ball):
+    """Draw a single cannonball"""
+    glPushMatrix()
+    glTranslatef(ball['pos'][0], ball['pos'][1], ball['pos'][2])
+    glColor3f(0.2, 0.2, 0.2)  # Dark gray/black
+    glutSolidSphere(cannonball_size, 10, 10)
+    glPopMatrix()
 
 
 def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
@@ -278,6 +294,92 @@ def draw_ocean():
     glPopMatrix()
 
 
+def fire_cannons():
+    """Fire cannons from both sides of the ship"""
+    global last_fire_time
+    
+    # Check cooldown
+    current_time = time.time()
+    if current_time - last_fire_time < fire_cooldown:
+        return
+    
+    # Can't fire when sinking
+    if ship_sinking:
+        return
+    
+    last_fire_time = current_time
+    
+    # Calculate direction the ship is facing
+    rad = math.radians(ship_rotation)
+    forward_x = math.cos(rad)
+    forward_y = math.sin(rad)
+    
+    # Calculate perpendicular direction (for left and right sides)
+    # Right side is 90 degrees clockwise from forward
+    right_x = math.sin(rad)
+    right_y = -math.cos(rad)
+    
+    # Fire from right side (all 4 cannons)
+    for x_pos in cannon_positions:
+        # Calculate cannon world position
+        # First rotate the cannon position, then add to ship position
+        cannon_local_x = x_pos
+        cannon_local_y = cannon_offset
+        
+        cannon_world_x = ship_x + cannon_local_x * forward_x + cannon_local_y * right_x
+        cannon_world_y = ship_y + cannon_local_x * forward_y + cannon_local_y * right_y
+        cannon_world_z = ship_z + 10
+        
+        # Cannonball fires perpendicular to ship (right side)
+        cannonballs.append({
+            'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
+            'dir': [right_x, right_y, 0.0],
+            'travelled': 0.0
+        })
+    
+    # Fire from left side (all 4 cannons)
+    for x_pos in cannon_positions:
+        # Calculate cannon world position
+        cannon_local_x = x_pos
+        cannon_local_y = -cannon_offset
+        
+        cannon_world_x = ship_x + cannon_local_x * forward_x + cannon_local_y * right_x
+        cannon_world_y = ship_y + cannon_local_x * forward_y + cannon_local_y * right_y
+        cannon_world_z = ship_z + 10
+        
+        # Cannonball fires perpendicular to ship (left side)
+        cannonballs.append({
+            'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
+            'dir': [-right_x, -right_y, 0.0],
+            'travelled': 0.0
+        })
+
+
+def update_cannonballs():
+    """Update cannonball positions and remove those that have traveled too far"""
+    global cannonballs
+    
+    balls_to_remove = []
+    
+    for ball in cannonballs:
+        # Update position
+        ball['pos'][0] += ball['dir'][0] * cannonball_speed
+        ball['pos'][1] += ball['dir'][1] * cannonball_speed
+        ball['pos'][2] += ball['dir'][2] * cannonball_speed
+        
+        # Track distance travelled
+        ball['travelled'] += cannonball_speed
+        
+        # Remove if traveled too far (max distance)
+        if ball['travelled'] >= cannonball_max_distance:
+            balls_to_remove.append(ball)
+    
+    # Remove marked cannonballs
+    for ball in balls_to_remove:
+        if ball in cannonballs:
+            cannonballs.remove(ball)
+
+
 def update_ship_movement():
     global ship_x, ship_y, ship_speed
     
@@ -289,11 +391,7 @@ def update_ship_movement():
     if sail_state == 0:
         ship_speed = SPEED_NO_SAIL
     elif sail_state == 1:
-        # Half sail gets speed boost during storm
-        if storm_active:
-            ship_speed = SPEED_HALF_SAIL_STORM_BOOST
-        else:
-            ship_speed = SPEED_HALF_SAIL
+        ship_speed = SPEED_HALF_SAIL
     else:
         ship_speed = SPEED_FULL_SAIL
     
@@ -364,7 +462,7 @@ def specialKeyListener(key, x, y):
 
 def mouseListener(button, state, x, y):
     if button == GLUT_LEFT_BUTTON and state == GLUT_DOWN:
-        print("Fire cannons!")
+        fire_cannons()
 
 
 def setupCamera():
@@ -442,7 +540,6 @@ def apply_storm_damage():
         if ship_health <= 0:
             ship_health = 0
             ship_sinking = True
-            print("Your ship is sinking!")
 
 
 def update_sinking():
@@ -466,6 +563,7 @@ def reset_game():
     global ship_x, ship_y, ship_z, ship_rotation, ship_speed, sail_state
     global storm_active, storm_start_time, last_storm_end_time, game_start_time
     global ship_health, last_damage_time, rain_initialized, ship_sinking
+    global cannonballs, last_fire_time
     
     ship_x = 0
     ship_y = 0
@@ -486,6 +584,10 @@ def reset_game():
     last_damage_time = 0
     ship_sinking = False
     
+    # Reset cannon system
+    cannonballs.clear()
+    last_fire_time = 0
+
     print("Game reset!")
 
 
@@ -501,6 +603,10 @@ def showScreen():
     setupCamera()
     draw_ocean()
     draw_ship()
+    
+    # Draw cannonballs
+    for ball in cannonballs:
+        draw_cannonball(ball)
     
     # Draw rain if storm is active
     if storm_active:
@@ -518,7 +624,7 @@ def showScreen():
         if sail_state == 2:
             draw_text(10, 680, "Full Sail: -5 HP/sec")
         elif sail_state == 1:
-            draw_text(10, 680, "Half Sail: -2 HP/sec (Speed Boost!)")
+            draw_text(10, 680, "Half Sail: -2 HP/sec")
     
     glutSwapBuffers()
 
@@ -559,6 +665,7 @@ def idle_with_keys():
     update_storm_system()
     apply_storm_damage()
     update_sinking()
+    update_cannonballs()
     if storm_active:
         update_rain()
     glutPostRedisplay()
