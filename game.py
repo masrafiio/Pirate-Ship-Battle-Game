@@ -35,6 +35,9 @@ rain_initialized = False
 ship_health = 100
 max_health = 100
 last_damage_time = 0
+ship_sinking = False
+sinking_speed = 0.5  # Speed at which ship sinks
+target_sink_depth = -35  # Half of ship height (ship will be half submerged)
 
 bow_back_x = 147
 bow_tip_x = 210
@@ -278,6 +281,11 @@ def draw_ocean():
 def update_ship_movement():
     global ship_x, ship_y, ship_speed
     
+    # Stop movement if ship is sinking
+    if ship_sinking:
+        ship_speed = 0
+        return
+    
     if sail_state == 0:
         ship_speed = SPEED_NO_SAIL
     elif sail_state == 1:
@@ -297,6 +305,12 @@ def update_ship_movement():
 
 def keyboardListener(key, x, y):
     global sail_state
+    
+    # Prevent controls when sinking
+    if ship_sinking:
+        if key == b'r':
+            reset_game()
+        return
     
     # Raise sails (W key)
     if key == b'w':
@@ -319,6 +333,9 @@ def keyboardListener(key, x, y):
     # Reset the game (R key)
     if key == b'r':
         reset_game()
+    
+    if key == b'\x1b':  #ESC
+        glutLeaveMainLoop()
 
 
 def specialKeyListener(key, x, y):
@@ -405,9 +422,9 @@ def end_storm():
 
 def apply_storm_damage():
     """Apply damage to ship based on sail state during storm"""
-    global ship_health, last_damage_time
+    global ship_health, last_damage_time, ship_sinking
     
-    if not storm_active:
+    if not storm_active or ship_sinking:
         return
     
     current_time = time.time()
@@ -424,12 +441,31 @@ def apply_storm_damage():
         # Check if ship is destroyed
         if ship_health <= 0:
             ship_health = 0
+            ship_sinking = True
+            print("Your ship is sinking!")
+
+
+def update_sinking():
+    """Gradually sink the ship into the ocean"""
+    global ship_z, ship_speed
+    
+    if not ship_sinking:
+        return
+    
+    # Stop the ship from moving
+    ship_speed = 0
+    
+    # Gradually lower the ship
+    if ship_z > target_sink_depth:
+        ship_z -= sinking_speed
+        if ship_z < target_sink_depth:
+            ship_z = target_sink_depth
 
 
 def reset_game():
     global ship_x, ship_y, ship_z, ship_rotation, ship_speed, sail_state
     global storm_active, storm_start_time, last_storm_end_time, game_start_time
-    global ship_health, last_damage_time, rain_initialized
+    global ship_health, last_damage_time, rain_initialized, ship_sinking
     
     ship_x = 0
     ship_y = 0
@@ -445,9 +481,12 @@ def reset_game():
     game_start_time = time.time()
     rain_initialized = False
     
-    # Reset health
+    # Reset health and sinking
     ship_health = 100
     last_damage_time = 0
+    ship_sinking = False
+    
+    print("Game reset!")
 
 
 def idle():
@@ -471,7 +510,10 @@ def showScreen():
     draw_text(10, 770, f"Sail State: {['No Sail', 'Half Sail', 'Full Sail'][sail_state]}")
     draw_text(10, 740, f"Health: {ship_health}/{max_health}")
     
-    if storm_active:
+    if ship_sinking:
+        draw_text(300, 400, "GAME OVER - SHIP SINKING!")
+        draw_text(350, 370, "Press R to Restart")
+    elif storm_active:
         draw_text(10, 710, "STORM ACTIVE!")
         if sail_state == 2:
             draw_text(10, 680, "Full Sail: -5 HP/sec")
@@ -493,6 +535,10 @@ def keyboard_up(key, x, y):
 def update_continuous_keys():
     global ship_rotation
     
+    # Can't turn when sinking
+    if ship_sinking:
+        return
+    
     # Can only turn when ship is moving
     if ship_speed > 0:
         # Turn left (A key)
@@ -512,6 +558,7 @@ def idle_with_keys():
     update_ship_movement()
     update_storm_system()
     apply_storm_damage()
+    update_sinking()
     if storm_active:
         update_rain()
     glutPostRedisplay()
