@@ -22,10 +22,10 @@ sail_state = 0
 # Storm system variables
 storm_active = False
 storm_start_time = 0
-storm_duration = 20
+storm_duration = 10
 game_start_time = time.time()
 last_storm_end_time = 0
-time_until_first_storm = 30
+time_until_first_storm = 10
 
 # Rain animation variables
 rain_drops = []
@@ -47,6 +47,13 @@ cannonball_speed = 12.0
 cannonball_size = 8.0
 cannonball_max_distance = 800
 
+# Enemy ship system
+enemies = []  # List of enemy ships
+enemy_health = 30  # Health for each enemy ship
+enemy_speed = 2.0  # Movement speed
+enemy_attack_range = 400  # Range to start firing
+enemy_optimal_distance = 300  # Distance to maintain from player
+enemy_fire_cooldown = 2.0  # Enemy firing cooldown
 # Aiming range indicator
 aiming_left = False  # Q key
 aiming_right = False  # E key
@@ -125,6 +132,19 @@ def draw_cannonball(ball):
     glPopMatrix()
 
 
+def draw_enemy_ship(enemy):
+    """Draw an enemy ship using draw_ship function with red colors and 1 mast"""
+    draw_ship(
+        x=enemy['x'],
+        y=enemy['y'],
+        z=enemy['z'],
+        rotation=enemy['rotation'],
+        hull_color=(0.6, 0.15, 0.15),
+        bow_color=(0.5, 0.1, 0.1),
+        sail_color=(0.9, 0.7, 0.7),
+        num_masts=1,
+        sail_state_override=2  # Always full sail for enemy
+    )
 def draw_range_indicator(direction):
     """Draw a red line/arrow showing the max range of cannonballs
     direction: 'left' for left side cannons, 'right' for right side cannons"""
@@ -207,20 +227,34 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glMatrixMode(GL_MODELVIEW)
 
 
-def draw_ship():
+def draw_ship(x=None, y=None, z=None, rotation=None, hull_color=(0.4, 0.2, 0.1), bow_color=(0.35, 0.18, 0.09), sail_color=(0.9, 0.9, 0.9), num_masts=2, sail_state_override=None):
+    # Use player ship values if not provided
+    if x is None:
+        x = ship_x
+    if y is None:
+        y = ship_y
+    if z is None:
+        z = ship_z
+    if rotation is None:
+        rotation = ship_rotation
+    if sail_state_override is None:
+        current_sail_state = sail_state
+    else:
+        current_sail_state = sail_state_override
+    
     glPushMatrix()
-    glTranslatef(ship_x, ship_y, ship_z)
-    glRotatef(ship_rotation, 0, 0, 1)
+    glTranslatef(x, y, z)
+    glRotatef(rotation, 0, 0, 1)
     
     #draw hull
-    glColor3f(0.4, 0.2, 0.1)
+    glColor3f(*hull_color)
     glPushMatrix()
     glScalef(4.2, 1.8, 1.0)
     glutSolidCube(70)
     glPopMatrix()
 
     #draw bow
-    glColor3f(0.35, 0.18, 0.09)
+    glColor3f(*bow_color)
     glBegin(GL_TRIANGLES)
     # Bottom face - left triangle
     glVertex3f(bow_tip_x, 0, -bow_height)      # Tip bottom
@@ -259,49 +293,69 @@ def draw_ship():
     glVertex3f(bow_back_x, bow_width, -bow_height)   # Back right bottom
     glEnd()
     
-    # Draw first mast - front
+    # Draw masts based on num_masts
     glColor3f(0.3, 0.3, 0.3)
-    glPushMatrix()
-    glTranslatef(70, 0, 35)
-    gluCylinder(gluNewQuadric(), 6, 6, 150, 10, 10)
-    glPopMatrix()
-    
-    # Draw second mast - rear
-    glColor3f(0.3, 0.3, 0.3)
-    glPushMatrix()
-    glTranslatef(-70, 0, 35)
-    gluCylinder(gluNewQuadric(), 6, 6, 150, 10, 10)
-    glPopMatrix()
+    if num_masts == 1:
+        # Single mast in center
+        glPushMatrix()
+        glTranslatef(0, 0, 35)
+        gluCylinder(gluNewQuadric(), 6, 6, 150, 10, 10)
+        glPopMatrix()
+    elif num_masts == 2:
+        # Draw first mast - front
+        glPushMatrix()
+        glTranslatef(70, 0, 35)
+        gluCylinder(gluNewQuadric(), 6, 6, 150, 10, 10)
+        glPopMatrix()
+        
+        # Draw second mast - rear
+        glPushMatrix()
+        glTranslatef(-70, 0, 35)
+        gluCylinder(gluNewQuadric(), 6, 6, 150, 10, 10)
+        glPopMatrix()
     
     # Draw sails
-    if sail_state > 0:
-        glColor3f(0.9, 0.9, 0.9)
-        sail_width = 42 if sail_state == 1 else 60
-        sail_height = 48 if sail_state == 1 else 75
+    if current_sail_state > 0 or sail_state_override is not None:
+        glColor3f(*sail_color)
+        sail_width = 42 if current_sail_state == 1 else 60
+        sail_height = 48 if current_sail_state == 1 else 75
         
-        # Front mast sail
-        glPushMatrix()
-        glTranslatef(70, 0, 90)
-        glRotatef(90, 0, 0, 1)
-        glBegin(GL_QUADS)
-        glVertex3f(-sail_width, 0, sail_height)
-        glVertex3f(sail_width, 0, sail_height)
-        glVertex3f(sail_width, 0, 0)
-        glVertex3f(-sail_width, 0, 0)
-        glEnd()
-        glPopMatrix()
-        
-        # Rear mast sail
-        glPushMatrix()
-        glTranslatef(-70, 0, 90)
-        glRotatef(90, 0, 0, 1)
-        glBegin(GL_QUADS)
-        glVertex3f(-sail_width, 0, sail_height)
-        glVertex3f(sail_width, 0, sail_height)
-        glVertex3f(sail_width, 0, 0)
-        glVertex3f(-sail_width, 0, 0)
-        glEnd()
-        glPopMatrix()
+        if num_masts == 1:
+            # Single sail in center
+            glPushMatrix()
+            glTranslatef(0, 0, 90)
+            glRotatef(90, 0, 0, 1)
+            glBegin(GL_QUADS)
+            glVertex3f(-sail_width, 0, sail_height)
+            glVertex3f(sail_width, 0, sail_height)
+            glVertex3f(sail_width, 0, 0)
+            glVertex3f(-sail_width, 0, 0)
+            glEnd()
+            glPopMatrix()
+        elif num_masts == 2:
+            # Front mast sail
+            glPushMatrix()
+            glTranslatef(70, 0, 90)
+            glRotatef(90, 0, 0, 1)
+            glBegin(GL_QUADS)
+            glVertex3f(-sail_width, 0, sail_height)
+            glVertex3f(sail_width, 0, sail_height)
+            glVertex3f(sail_width, 0, 0)
+            glVertex3f(-sail_width, 0, 0)
+            glEnd()
+            glPopMatrix()
+            
+            # Rear mast sail
+            glPushMatrix()
+            glTranslatef(-70, 0, 90)
+            glRotatef(90, 0, 0, 1)
+            glBegin(GL_QUADS)
+            glVertex3f(-sail_width, 0, sail_height)
+            glVertex3f(sail_width, 0, sail_height)
+            glVertex3f(sail_width, 0, 0)
+            glVertex3f(-sail_width, 0, 0)
+            glEnd()
+            glPopMatrix()
     
     # Draw cannons
     glColor3f(0.2, 0.2, 0.2)
@@ -362,6 +416,200 @@ def draw_ocean():
     glPopMatrix()
 
 
+def spawn_enemy():
+    """Spawn a new enemy ship at a random position around the player"""
+    # Spawn at distance 1500-2000 from player (further away)
+    angle = random.uniform(0, 360)
+    distance = random.uniform(1500, 2000)
+    
+    rad = math.radians(angle)
+    x = ship_x + distance * math.cos(rad)
+    y = ship_y + distance * math.sin(rad)
+    
+    enemy = {
+        'x': x,
+        'y': y,
+        'z': 50,
+        'rotation': 0,
+        'health': enemy_health,
+        'last_fire_time': 0,
+        'sinking': False,
+        'sink_depth': 50
+    }
+    enemies.append(enemy)
+    print(f"Enemy ship spawned! Total enemies: {len(enemies)}")
+
+
+def update_enemy_ai():
+    """Update enemy ship AI - movement, positioning, and firing"""
+    enemies_to_remove = []
+    
+    for enemy in enemies:
+        if enemy['sinking']:
+            # Sink the enemy ship
+            if enemy['sink_depth'] > -35:
+                enemy['sink_depth'] -= 0.5
+                enemy['z'] = enemy['sink_depth']
+            else:
+                enemies_to_remove.append(enemy)
+            continue
+        
+        # Calculate distance and direction to player
+        dx = ship_x - enemy['x']
+        dy = ship_y - enemy['y']
+        distance = math.sqrt(dx * dx + dy * dy)
+        
+        if distance < 1:
+            continue
+        
+        # Normalize direction
+        dir_x = dx / distance
+        dir_y = dy / distance
+        
+        # Calculate angle to player
+        angle_to_player = math.degrees(math.atan2(dy, dx))
+        
+        # Behavior: Position broadside to player at optimal distance
+        if distance > enemy_optimal_distance + 50:
+            # Move closer to player
+            enemy['x'] += dir_x * enemy_speed
+            enemy['y'] += dir_y * enemy_speed
+            # Face the player while approaching
+            enemy['rotation'] = angle_to_player
+        elif distance < enemy_optimal_distance - 50:
+            # Move away from player
+            enemy['x'] -= dir_x * enemy_speed
+            enemy['y'] -= dir_y * enemy_speed
+            # Face away while retreating
+            enemy['rotation'] = angle_to_player + 180
+        else:
+            # At optimal distance - position broadside (perpendicular)
+            # Rotate to be perpendicular to player (90 degrees offset)
+            enemy['rotation'] = angle_to_player + 90
+            
+            # Strafe to maintain broadside position
+            # Move perpendicular to the line between ships
+            perp_x = -dir_y
+            perp_y = dir_x
+            enemy['x'] += perp_x * enemy_speed * 0.3
+            enemy['y'] += perp_y * enemy_speed * 0.3
+        
+        # Fire cannons if in range
+        if distance <= enemy_attack_range:
+            fire_enemy_cannons(enemy)
+    
+    # Remove fully sunken enemies
+    for enemy in enemies_to_remove:
+        if enemy in enemies:
+            enemies.remove(enemy)
+
+
+def fire_enemy_cannons(enemy):
+    """Fire cannons from enemy ship toward player"""
+    current_time = time.time()
+    if current_time - enemy['last_fire_time'] < enemy_fire_cooldown:
+        return
+    
+    enemy['last_fire_time'] = current_time
+    
+    # Calculate direction from enemy to player
+    dx = ship_x - enemy['x']
+    dy = ship_y - enemy['y']
+    distance = math.sqrt(dx * dx + dy * dy)
+    
+    if distance < 1:
+        return
+    
+    # Normalize direction
+    dir_x = dx / distance
+    dir_y = dy / distance
+    
+    # Enemy rotation
+    rad = math.radians(enemy['rotation'])
+    forward_x = math.cos(rad)
+    forward_y = math.sin(rad)
+    right_x = math.sin(rad)
+    right_y = -math.cos(rad)
+    
+    # Fire from both sides (2 cannons per side for enemies)
+    for x_pos in [60, -60]:
+        # Right side
+        cannon_world_x = enemy['x'] + x_pos * forward_x + 70 * right_x
+        cannon_world_y = enemy['y'] + x_pos * forward_y + 70 * right_y
+        cannon_world_z = enemy['z'] + 10
+        
+        cannonballs.append({
+            'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
+            'dir': [dir_x, dir_y, 0.0],
+            'travelled': 0.0,
+            'enemy_shot': True  # Mark as enemy shot
+        })
+        
+        # Left side
+        cannon_world_x = enemy['x'] + x_pos * forward_x - 70 * right_x
+        cannon_world_y = enemy['y'] + x_pos * forward_y - 70 * right_y
+        
+        cannonballs.append({
+            'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
+            'dir': [dir_x, dir_y, 0.0],
+            'travelled': 0.0,
+            'enemy_shot': True
+        })
+
+
+def check_cannonball_hits():
+    """Check if cannonballs hit ships"""
+    global ship_health, ship_sinking
+    
+    balls_to_remove = []
+    
+    for ball in cannonballs:
+        # Check if player shot hit an enemy
+        if not ball.get('enemy_shot', False):
+            for enemy in enemies:
+                if enemy['sinking']:
+                    continue
+                
+                dx = ball['pos'][0] - enemy['x']
+                dy = ball['pos'][1] - enemy['y']
+                dz = ball['pos'][2] - enemy['z']
+                dist = math.sqrt(dx*dx + dy*dy + dz*dz)
+                
+                if dist < 80:  # Hit detection radius
+                    enemy['health'] -= 10
+                    balls_to_remove.append(ball)
+                    print(f"Enemy hit! Enemy health: {enemy['health']}")
+                    
+                    if enemy['health'] <= 0:
+                        enemy['sinking'] = True
+                        print("Enemy ship destroyed!")
+                    break
+        
+        # Check if enemy shot hit player
+        else:
+            if not ship_sinking:
+                dx = ball['pos'][0] - ship_x
+                dy = ball['pos'][1] - ship_y
+                dz = ball['pos'][2] - ship_z
+                dist = math.sqrt(dx*dx + dy*dy + dz*dz)
+                
+                if dist < 100:  # Hit detection radius for player
+                    ship_health -= 10
+                    balls_to_remove.append(ball)
+                    print(f"Player hit! Health: {ship_health}")
+                    
+                    if ship_health <= 0:
+                        ship_health = 0
+                        ship_sinking = True
+                        print("Your ship is sinking!")
+                    break
+    
+    # Remove hit cannonballs
+    for ball in balls_to_remove:
+        if ball in cannonballs:
+            cannonballs.remove(ball)
+
+
 def fire_cannons():
     """Fire cannons from both sides of the ship"""
     global last_fire_time
@@ -402,7 +650,8 @@ def fire_cannons():
         cannonballs.append({
             'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
             'dir': [right_x, right_y, 0.0],
-            'travelled': 0.0
+            'travelled': 0.0,
+            'enemy_shot': False  # Mark as player shot
         })
     
     # Fire from left side (all 4 cannons)
@@ -419,7 +668,8 @@ def fire_cannons():
         cannonballs.append({
             'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
             'dir': [-right_x, -right_y, 0.0],
-            'travelled': 0.0
+            'travelled': 0.0,
+            'enemy_shot': False  # Mark as player shot
         })
 
 
@@ -529,6 +779,10 @@ def specialKeyListener(key, x, y):
 
 
 def mouseListener(button, state, x, y):
+    # Disable firing when ship is sinking
+    if ship_sinking:
+        return
+    
     if button == GLUT_LEFT_BUTTON and state == GLUT_DOWN:
         fire_cannons()
 
@@ -584,6 +838,10 @@ def end_storm():
     storm_active = False
     last_storm_end_time = time.time()
     rain_initialized = False
+    
+    # Spawn enemy ship after storm ends
+    spawn_enemy()
+    print("Storm has ended!")
 
 
 def apply_storm_damage():
@@ -631,7 +889,7 @@ def reset_game():
     global ship_x, ship_y, ship_z, ship_rotation, ship_speed, sail_state
     global storm_active, storm_start_time, last_storm_end_time, game_start_time
     global ship_health, last_damage_time, rain_initialized, ship_sinking
-    global cannonballs, last_fire_time
+    global cannonballs, last_fire_time, enemies
     
     ship_x = 0
     ship_y = 0
@@ -655,10 +913,9 @@ def reset_game():
     # Reset cannon system
     cannonballs.clear()
     last_fire_time = 0
-
-    print("Game reset!")
-
-
+    
+    # Reset enemies
+    enemies.clear()
 def idle():
     update_ship_movement()
     glutPostRedisplay()
@@ -672,6 +929,9 @@ def showScreen():
     draw_ocean()
     draw_ship()
     
+    # Draw enemy ships
+    for enemy in enemies:
+        draw_enemy_ship(enemy)
     # Draw range indicator when aiming
     if aiming_left:
         draw_range_indicator('left')
@@ -749,12 +1009,20 @@ def update_continuous_keys():
                 ship_rotation += 360
 
 def idle_with_keys():
+    # When ship is sinking, pause gameplay but continue sinking animation
+    if ship_sinking:
+        update_sinking()
+        glutPostRedisplay()
+        return
+    
     update_continuous_keys()
     update_ship_movement()
     update_storm_system()
     apply_storm_damage()
     update_sinking()
     update_cannonballs()
+    update_enemy_ai()
+    check_cannonball_hits()
     if storm_active:
         update_rain()
     glutPostRedisplay()
