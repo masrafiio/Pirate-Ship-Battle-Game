@@ -25,7 +25,7 @@ storm_start_time = 0
 storm_duration = 10
 game_start_time = time.time()
 last_storm_end_time = 0
-time_until_first_storm = 30
+time_until_first_storm = 10
 
 # Rain animation variables
 rain_drops = []
@@ -353,9 +353,9 @@ def draw_ocean():
 
 def spawn_enemy():
     """Spawn a new enemy ship at a random position around the player"""
-    # Spawn at distance 800-1200 from player
+    # Spawn at distance 1500-2000 from player (further away)
     angle = random.uniform(0, 360)
-    distance = random.uniform(800, 1200)
+    distance = random.uniform(1500, 2000)
     
     rad = math.radians(angle)
     x = ship_x + distance * math.cos(rad)
