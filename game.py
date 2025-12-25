@@ -714,6 +714,10 @@ def specialKeyListener(key, x, y):
 
 
 def mouseListener(button, state, x, y):
+    # Disable firing when ship is sinking
+    if ship_sinking:
+        return
+    
     if button == GLUT_LEFT_BUTTON and state == GLUT_DOWN:
         fire_cannons()
 
@@ -920,6 +924,12 @@ def update_continuous_keys():
                 ship_rotation += 360
 
 def idle_with_keys():
+    # When ship is sinking, pause gameplay but continue sinking animation
+    if ship_sinking:
+        update_sinking()
+        glutPostRedisplay()
+        return
+    
     update_continuous_keys()
     update_ship_movement()
     update_storm_system()
