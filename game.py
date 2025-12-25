@@ -675,8 +675,10 @@ def check_cannonball_hits():
 
 
 def fire_cannons():
-    """Fire cannons from both sides of the ship"""
     global last_fire_time
+
+    if not aiming_left and not aiming_right:
+        return
     
     # Check cooldown
     current_time = time.time()
@@ -700,41 +702,43 @@ def fire_cannons():
     right_y = -math.cos(rad)
     
     # Fire from right side (all 4 cannons)
-    for x_pos in cannon_positions:
-        # Calculate cannon world position
-        # First rotate the cannon position, then add to ship position
-        cannon_local_x = x_pos
-        cannon_local_y = cannon_offset
-        
-        cannon_world_x = ship_x + cannon_local_x * forward_x + cannon_local_y * right_x
-        cannon_world_y = ship_y + cannon_local_x * forward_y + cannon_local_y * right_y
-        cannon_world_z = ship_z + 10
-        
-        # Cannonball fires perpendicular to ship (right side)
-        cannonballs.append({
-            'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
-            'dir': [right_x, right_y, 0.0],
-            'travelled': 0.0,
-            'enemy_shot': False  # Mark as player shot
-        })
+    if aiming_right:
+        for x_pos in cannon_positions:
+            # Calculate cannon world position
+            # First rotate the cannon position, then add to ship position
+            cannon_local_x = x_pos
+            cannon_local_y = cannon_offset
+            
+            cannon_world_x = ship_x + cannon_local_x * forward_x + cannon_local_y * right_x
+            cannon_world_y = ship_y + cannon_local_x * forward_y + cannon_local_y * right_y
+            cannon_world_z = ship_z + 10
+            
+            # Cannonball fires perpendicular to ship (right side)
+            cannonballs.append({
+                'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
+                'dir': [right_x, right_y, 0.0],
+                'travelled': 0.0,
+                'enemy_shot': False  # Mark as player shot
+            })
     
     # Fire from left side (all 4 cannons)
-    for x_pos in cannon_positions:
-        # Calculate cannon world position
-        cannon_local_x = x_pos
-        cannon_local_y = -cannon_offset
-        
-        cannon_world_x = ship_x + cannon_local_x * forward_x + cannon_local_y * right_x
-        cannon_world_y = ship_y + cannon_local_x * forward_y + cannon_local_y * right_y
-        cannon_world_z = ship_z + 10
-        
-        # Cannonball fires perpendicular to ship (left side)
-        cannonballs.append({
-            'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
-            'dir': [-right_x, -right_y, 0.0],
-            'travelled': 0.0,
-            'enemy_shot': False  # Mark as player shot
-        })
+    if aiming_left:
+        for x_pos in cannon_positions:
+            # Calculate cannon world position
+            cannon_local_x = x_pos
+            cannon_local_y = -cannon_offset
+            
+            cannon_world_x = ship_x + cannon_local_x * forward_x + cannon_local_y * right_x
+            cannon_world_y = ship_y + cannon_local_x * forward_y + cannon_local_y * right_y
+            cannon_world_z = ship_z + 10
+            
+            # Cannonball fires perpendicular to ship (left side)
+            cannonballs.append({
+                'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
+                'dir': [-right_x, -right_y, 0.0],
+                'travelled': 0.0,
+                'enemy_shot': False  # Mark as player shot
+            })
 
 
 def update_cannonballs():
