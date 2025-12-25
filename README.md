@@ -43,7 +43,6 @@ Computer Graphics (CSE423) Project
   * Rain from a random direction (angular rain animation)
   * Darkened sky visuals
   * **Full Sail**: Ship takes **5 damage per second**
-  * **Half Sail**: Ship gains wind speed boost but takes **2 damage per second**
 
 ---
 
@@ -157,5 +156,6 @@ Computer Graphics (CSE423) Project
 | Left Click | Fire cannons           |
 | R          | Reset game             |
 | Arrow Keys | Camera control         |
+| Esc        | Exit Game              |
 
 ---
