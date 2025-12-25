@@ -2,6 +2,8 @@ from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
 import math
+import random
+import time
 
 camera_pos = (0, 500, 500)
 camera_distance = 500
@@ -17,6 +19,23 @@ ship_rotation = 0  # Ship facing direction
 ship_speed = 0
 sail_state = 0
 
+# Storm system variables
+storm_active = False
+storm_start_time = 0
+storm_duration = 20
+game_start_time = time.time()
+last_storm_end_time = 0
+time_until_first_storm = 30
+
+# Rain animation variables
+rain_drops = []
+rain_initialized = False
+
+# Health system
+ship_health = 100
+max_health = 100
+last_damage_time = 0
+
 bow_back_x = 147
 bow_tip_x = 210
 bow_width = 63
@@ -28,8 +47,60 @@ cannon_offset = 80
 
 SPEED_NO_SAIL = 0
 SPEED_HALF_SAIL = 4
-SPEED_FULL_SAIL = 6 
+SPEED_FULL_SAIL = 6
+SPEED_HALF_SAIL_STORM_BOOST = 6  # Half sail gets speed boost during storm
 TURN_SPEED = 2
+
+def initialize_rain():
+    """Initialize rain drops at random positions around the ship"""
+    global rain_drops, rain_initialized
+    rain_drops = []
+    
+    # Create rain drops in a large area around the ship
+    for i in range(300):
+        # Distribute rain in a large area
+        x = random.uniform(-1000, 1000)
+        y = random.uniform(-1000, 1000)
+        z = random.uniform(100, 400)  # Height above water
+        rain_drops.append([x, y, z])
+    
+    rain_initialized = True
+
+
+def draw_rain():
+    """Draw rain as vertical lines falling straight down"""
+    if not rain_initialized:
+        return
+    
+    glColor3f(0.7, 0.7, 0.9)  # Light gray/blue color for rain
+    glBegin(GL_LINES)
+    
+    for drop in rain_drops:
+        # Draw each rain drop as a vertical line
+        glVertex3f(drop[0], drop[1], drop[2])
+        glVertex3f(drop[0], drop[1], drop[2] - 20)  # Line length of 20 units
+    
+    glEnd()
+
+
+def update_rain():
+    """Update rain drop positions to create falling effect"""
+    global rain_drops
+    
+    if not rain_initialized:
+        return
+    
+    for drop in rain_drops:
+        # Move rain straight down
+        drop[2] -= 8  # Fall speed
+        
+        # Reset rain drops that fall below water
+        if drop[2] < 0:
+            drop[2] = random.uniform(300, 400)
+            # Keep rain drops relative to ship position
+            drop[0] = ship_x + random.uniform(-1000, 1000)
+            drop[1] = ship_y + random.uniform(-1000, 1000)
+
 
 def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glColor3f(1, 1, 1)
@@ -177,10 +248,17 @@ def draw_ocean():
     for i in range(ship_tile_x - tiles, ship_tile_x + tiles):
         for j in range(ship_tile_y - tiles, ship_tile_y + tiles):
             # Alternate colors for checkerboard pattern
-            if (i + j) % 2 == 0:
-                glColor3f(0.2, 0.6, 0.8)  # Brighter blue
+            # Darken ocean during storm
+            if storm_active:
+                if (i + j) % 2 == 0:
+                    glColor3f(0.15, 0.3, 0.35)  # Dark gray-blue
+                else:
+                    glColor3f(0.2, 0.35, 0.4)  # Slightly lighter dark gray-blue
             else:
-                glColor3f(0.3, 0.7, 0.9)  # Even brighter blue
+                if (i + j) % 2 == 0:
+                    glColor3f(0.2, 0.6, 0.8)  # Brighter blue
+                else:
+                    glColor3f(0.3, 0.7, 0.9)  # Even brighter blue
             
             x1 = i * tile_size
             y1 = j * tile_size
@@ -203,7 +281,11 @@ def update_ship_movement():
     if sail_state == 0:
         ship_speed = SPEED_NO_SAIL
     elif sail_state == 1:
-        ship_speed = SPEED_HALF_SAIL
+        # Half sail gets speed boost during storm
+        if storm_active:
+            ship_speed = SPEED_HALF_SAIL_STORM_BOOST
+        else:
+            ship_speed = SPEED_HALF_SAIL
     else:
         ship_speed = SPEED_FULL_SAIL
     
@@ -220,13 +302,11 @@ def keyboardListener(key, x, y):
     if key == b'w':
         if sail_state < 2:
             sail_state += 1
-            print(f"Sail state: {['No Sail', 'Half Sail', 'Full Sail'][sail_state]}")
     
     # Lower sails (S key)
     if key == b's':
         if sail_state > 0:
             sail_state -= 1
-            print(f"Sail state: {['No Sail', 'Half Sail', 'Full Sail'][sail_state]}")
     
     # Turn ship left (A key)
     if key == b'a':
@@ -284,15 +364,90 @@ def setupCamera():
     gluLookAt(cam_x, cam_y, cam_z, ship_x, ship_y, ship_z, 0, 0, 1)
 
 
+def update_storm_system():
+    """Manage storm timing and state transitions"""
+    global storm_active, storm_start_time, last_storm_end_time, rain_initialized
+    global game_start_time
+    
+    current_time = time.time()
+    elapsed_game_time = current_time - game_start_time
+    
+    # Check if storm should start (30 seconds after game start or after enemy destroyed)
+    if not storm_active:
+        # First storm after 30 seconds
+        if elapsed_game_time >= time_until_first_storm and last_storm_end_time == 0:
+            start_storm()
+        # Subsequent storms happen after enemy destroyed (not implemented yet)
+        # For now, just cycle storms every 40 seconds (30 wait + 10 storm)
+        elif last_storm_end_time > 0 and (current_time - last_storm_end_time) >= 30:
+            start_storm()
+    else:
+        # Check if storm should end (after 10 seconds)
+        if (current_time - storm_start_time) >= storm_duration:
+            end_storm()
+
+
+def start_storm():
+    """Start a storm event"""
+    global storm_active, storm_start_time, rain_initialized
+    storm_active = True
+    storm_start_time = time.time()
+    rain_initialized = False  # Force rain re-initialization
+    initialize_rain()
+
+def end_storm():
+    """End the current storm"""
+    global storm_active, last_storm_end_time, rain_initialized
+    storm_active = False
+    last_storm_end_time = time.time()
+    rain_initialized = False
+
+
+def apply_storm_damage():
+    """Apply damage to ship based on sail state during storm"""
+    global ship_health, last_damage_time
+    
+    if not storm_active:
+        return
+    
+    current_time = time.time()
+    # Apply damage once per second
+    if current_time - last_damage_time >= 1.0:
+        if sail_state == 2:  # Full sail
+            ship_health -= 5
+        elif sail_state == 1:  # Half sail
+            ship_health -= 2
+        # No sail takes no damage
+        
+        last_damage_time = current_time
+        
+        # Check if ship is destroyed
+        if ship_health <= 0:
+            ship_health = 0
+
+
 def reset_game():
     global ship_x, ship_y, ship_z, ship_rotation, ship_speed, sail_state
+    global storm_active, storm_start_time, last_storm_end_time, game_start_time
+    global ship_health, last_damage_time, rain_initialized
+    
     ship_x = 0
     ship_y = 0
     ship_z = 50
     ship_rotation = 0
     ship_speed = 0
     sail_state = 0
-    print("Game reset!")
+    
+    # Reset storm system
+    storm_active = False
+    storm_start_time = 0
+    last_storm_end_time = 0
+    game_start_time = time.time()
+    rain_initialized = False
+    
+    # Reset health
+    ship_health = 100
+    last_damage_time = 0
 
 
 def idle():
@@ -307,7 +462,22 @@ def showScreen():
     setupCamera()
     draw_ocean()
     draw_ship()
+    
+    # Draw rain if storm is active
+    if storm_active:
+        draw_rain()
+    
+    # Display UI text
     draw_text(10, 770, f"Sail State: {['No Sail', 'Half Sail', 'Full Sail'][sail_state]}")
+    draw_text(10, 740, f"Health: {ship_health}/{max_health}")
+    
+    if storm_active:
+        draw_text(10, 710, "STORM ACTIVE!")
+        if sail_state == 2:
+            draw_text(10, 680, "Full Sail: -5 HP/sec")
+        elif sail_state == 1:
+            draw_text(10, 680, "Half Sail: -2 HP/sec (Speed Boost!)")
+    
     glutSwapBuffers()
 
 keys_pressed = set()
@@ -340,6 +510,10 @@ def update_continuous_keys():
 def idle_with_keys():
     update_continuous_keys()
     update_ship_movement()
+    update_storm_system()
+    apply_storm_damage()
+    if storm_active:
+        update_rain()
     glutPostRedisplay()
 
 def main():
