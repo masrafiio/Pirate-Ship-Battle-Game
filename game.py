@@ -7,10 +7,10 @@ import random
 import time
 
 camera_pos = (0, 500, 500)
-camera_distance = 400
+camera_distance = 500
 camera_angle = 0
 
-fovY = 100  # Field of view
+fovY = 110  # Field of view
 GRID_LENGTH = 600  # Length of grid lines
 
 ship_x = 0
@@ -49,36 +49,39 @@ cannonball_size = 8.0
 cannonball_max_distance = 800
 
 # Enemy ship system
-enemy_list = []  # List of enemy ships
-enemy_health = 30  # Health for each enemy ship
-enemy_speed = 2.0  # Movement speed
-enemy_attack_range = 400  # Range to start firing
-enemy_optimal_distance = 300  # Distance to maintain from player
-enemy_fire_cooldown = 2.0  # Enemy firing cooldown
+enemy_list = []
+enemy_health = 30
+enemy_speed = 2.0
+enemy_attack_range = 400
+enemy_optimal_distance = 300
+enemy_fire_cooldown = 2.0
+
 # Aiming range indicator
-aiming_left = False  # Q key
-aiming_right = False  # E key
+aiming_left = False
+aiming_right = False
 
 # Large Wave System
 wave_active = False
-wave_x = 0  # Wave position (center x)
-wave_y = 0  # Wave position (center y)
-wave_z = 0  # Wave height
-wave_direction_x = 0  # Wave movement direction
-wave_direction_y = 1  # Wave movement direction
-wave_speed = 20.0  # Speed of wave moving toward ship
-wave_spawn_distance = 5400  # Distance from ship where wave spawns (3x original)
-wave_width = 1400  # Width of the wave wall (wider)
-wave_height = 150  # Height of the wave
-wave_damage = 15  # Damage dealt on side hit
+wave_x = 0
+wave_y = 0
+wave_z = 0
+wave_direction_x = 0
+wave_direction_y = 1
+wave_speed = 20.0
+wave_spawn_distance = 5400
+wave_width = 5000
+wave_height = 150
+wave_damage = 15
 last_wave_damage_time = 0
-wave_damage_cooldown = 1.0  # Cooldown between damage hits
+wave_damage_cooldown = 1.0
 
+#Bow
 bow_back_x = 147
 bow_tip_x = 210
 bow_width = 63
 bow_height = 35
 
+#Cannon
 cannon_positions = [80, 30, -20, -70]
 cannon_length = 40
 cannon_offset = 100
@@ -136,63 +139,44 @@ def drawEnemyShip(enemy):
 
 
 def draw_range_indicator(direction):
-    """Draw a red line/arrow showing the max range of cannonballs
-    direction: 'left' for left side cannons, 'right' for right side cannons"""
-    
-    # Calculate the direction perpendicular to ship heading
     rad = math.radians(ship_rotation)
     forward_x = math.cos(rad)
     forward_y = math.sin(rad)
-    
-    # Right side is 90 degrees clockwise from forward
+
     right_x = math.sin(rad)
     right_y = -math.cos(rad)
-    
-    # Determine the direction for the range indicator
+
     if direction == 'right':
-        # Right side cannons fire to the right
         x_dir = right_x
         y_dir = right_y
     else:
-        # Left side cannons fire to the left
         x_dir = -right_x
         y_dir = -right_y
-    
-    # Calculate start and end points of the range indicator
+
     start_x = ship_x
     start_y = ship_y
-    start_z = ship_z + 30  # Above the ship
-    
-    # End point is at maximum cannonball range
+    start_z = ship_z + 30
     end_x = start_x + x_dir * cannonball_max_distance
     end_y = start_y + y_dir * cannonball_max_distance
     end_z = start_z
     
     # Draw the line in red
-    glColor3f(1.0, 0.0, 0.0)  # Red color
-    glLineWidth(2.0)
+    glColor3f(1.0, 0.0, 0.0)
+    glLineWidth(3)
     glBegin(GL_LINES)
     glVertex3f(start_x, start_y, start_z)
     glVertex3f(end_x, end_y, end_z)
     glEnd()
     glLineWidth(1.0)
+    arrow_size = 100
     
-    # Draw an arrowhead at the end point
-    arrow_size = 20
-    
-    # Create perpendicular vectors for the arrowhead
     perp_x = -y_dir
     perp_y = x_dir
-    
-    # Draw arrowhead triangle
     glBegin(GL_TRIANGLES)
-    # Tip of arrow
     glVertex3f(end_x, end_y, end_z)
-    # Back left of arrowhead
     glVertex3f(end_x - x_dir * arrow_size + perp_x * arrow_size * 0.3, 
                end_y - y_dir * arrow_size + perp_y * arrow_size * 0.3, 
                end_z)
-    # Back right of arrowhead
     glVertex3f(end_x - x_dir * arrow_size - perp_x * arrow_size * 0.3, 
                end_y - y_dir * arrow_size - perp_y * arrow_size * 0.3, 
                end_z)
@@ -200,20 +184,14 @@ def draw_range_indicator(direction):
 
 
 def draw_wave():
-    """Draw the large wave as a moving wall of water"""
     if not wave_active:
         return
-    
-    # Draw wave as a large quad wall
-    glColor4f(0.0, 0.4, 1.0, 0.9)  # Semi-transparent blue
+
+    glColor4f(0.0, 0.4, 1.0, 0.9) 
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-    
-    # Calculate perpendicular direction to wave movement
     perp_x = -wave_direction_y
     perp_y = wave_direction_x
-    
-    # Wave vertices - a large vertical wall
     half_width = wave_width / 2
     
     # Bottom front
@@ -862,37 +840,23 @@ def updateSinking():
 
 
 def spawn_wave():
-    """Spawn a wave that attacks the ship but never from the backside"""
     global wave_active, wave_x, wave_y, wave_direction_x, wave_direction_y
-    
-    # Ship facing direction
     ship_rad = math.radians(ship_rotation)
-
-    # ✅ Wave can spawn only in front arc (-90 to +90 degrees)
     random_offset = random.uniform(-90, 90)
     attack_angle = ship_rad + math.radians(random_offset)
 
     # Spawn direction
     spawn_x_dir = math.cos(attack_angle)
     spawn_y_dir = math.sin(attack_angle)
-
-    # Spawn wave far away in that direction
     wave_x = ship_x + spawn_x_dir * wave_spawn_distance
     wave_y = ship_y + spawn_y_dir * wave_spawn_distance
-
-    # ✅ Wave always moves toward ship
     wave_direction_x = -spawn_x_dir
     wave_direction_y = -spawn_y_dir
-
     wave_active = True
-
-    print("Wave Spawned Offset:", random_offset)
 
 
 def update_wave():
-    """Update wave position and check for collisions"""
     global wave_active, wave_x, wave_y, ship_health, last_wave_damage_time
-    
     if not wave_active:
         return
     
@@ -900,50 +864,39 @@ def update_wave():
     wave_x += wave_direction_x * wave_speed
     wave_y += wave_direction_y * wave_speed
     
-    # Check collision with ship
     check_wave_collision()
     
     # Remove wave if it has passed the ship
     dist_to_ship = math.sqrt((wave_x - ship_x)**2 + (wave_y - ship_y)**2)
-    if dist_to_ship < 100:  # Wave has passed through/very close to ship
+    if dist_to_ship < 100:
         wave_active = False
 
 
 def check_wave_collision():
-    """Check if ship collides with wave and apply damage based on angle"""
     global ship_health, last_wave_damage_time, wave_active
     
     if not wave_active:
         return
     
-    # Calculate distance from ship to wave center
     dist_to_wave = math.sqrt((wave_x - ship_x)**2 + (wave_y - ship_y)**2)
     
-    # Check if ship is within wave impact zone (distance threshold)
-    if dist_to_wave < 150:  # Impact zone
-        # Calculate angle between ship heading and wave direction
+    if dist_to_wave < 150:
         ship_rad = math.radians(ship_rotation)
         ship_forward_x = math.cos(ship_rad)
         ship_forward_y = math.sin(ship_rad)
         
-        # Normalize wave direction
         wave_mag = math.sqrt(wave_direction_x**2 + wave_direction_y**2)
         if wave_mag > 0:
             norm_wave_x_dir = wave_direction_x / wave_mag
             norm_wave_y_dir = wave_direction_y / wave_mag
         else:
             return
-        
-        # Calculate dot product (cosine of angle)
+
         dot_product = ship_forward_x * norm_wave_x_dir + ship_forward_y * norm_wave_y_dir
-        
-        # Convert to angle (radians)
         angle_rad = math.acos(max(-1, min(1, dot_product)))
         angle_deg = math.degrees(angle_rad)
         
-        # Head-on: angle < 30 degrees is safe, otherwise take damage
         if angle_deg > 30:
-            # Side hit - apply damage
             current_time = time.time()
             if current_time - last_wave_damage_time >= wave_damage_cooldown:
                 ship_health -= wave_damage
