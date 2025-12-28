@@ -1,4 +1,3 @@
-
 from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
@@ -128,7 +127,7 @@ def updateRain():
 def drawCannonball(ball):
     glPushMatrix()
     glTranslatef(ball['pos'][0], ball['pos'][1], ball['pos'][2])
-    glColor3f(0.2, 0.2, 0.2)  # Dark gray/black
+    glColor3f(0.2, 0.2, 0.2)
     glutSolidSphere(cannonball_size, 10, 10)
     glPopMatrix()
 
@@ -543,11 +542,9 @@ def checkCannonballHits():
                 if dist < 80:  # Hit detection radius
                     enemy['health'] -= 10
                     balls_to_remove.append(ball)
-                    print(f"Enemy hit! Enemy health: {enemy['health']}")
                     
                     if enemy['health'] <= 0:
                         enemy['sinking'] = True
-                        print("Enemy ship destroyed!")
                     break
         
         # Check if enemy shot hit player
@@ -561,12 +558,10 @@ def checkCannonballHits():
                 if dist < 100:  # Hit detection radius for player
                     ship_health -= 10
                     balls_to_remove.append(ball)
-                    print(f"Player hit! Health: {ship_health}")
                     
                     if ship_health <= 0:
                         ship_health = 0
                         ship_sinking = True
-                        print("Your ship is sinking!")
                     break
     
  
