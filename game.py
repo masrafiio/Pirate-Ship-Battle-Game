@@ -7,10 +7,10 @@ import random
 import time
 
 camera_pos = (0, 500, 500)
-camera_distance = 500
+camera_distance = 400
 camera_angle = 0
 
-fovY = 120  # Field of view
+fovY = 100  # Field of view
 GRID_LENGTH = 600  # Length of grid lines
 
 ship_x = 0
@@ -30,7 +30,7 @@ time_until_first_storm = 10
 
 # Rain animation variables
 rain_drops = []
-rain_initialized = False
+rain_init = False
 
 # Health system
 ship_health = 100
@@ -49,7 +49,7 @@ cannonball_size = 8.0
 cannonball_max_distance = 800
 
 # Enemy ship system
-enemies = []  # List of enemy ships
+enemy_list = []  # List of enemy ships
 enemy_health = 30  # Health for each enemy ship
 enemy_speed = 2.0  # Movement speed
 enemy_attack_range = 400  # Range to start firing
@@ -80,61 +80,44 @@ bow_width = 63
 bow_height = 35
 
 cannon_positions = [80, 30, -20, -70]
-cannon_length = 25
-cannon_offset = 80
+cannon_length = 40
+cannon_offset = 100
 
-SPEED_NO_SAIL = 0
-SPEED_HALF_SAIL = 4
-SPEED_FULL_SAIL = 6
+NO_SAIL_SPEED = 0
+HALF_SAIL_SPEED = 4
+FULL_SAIL_SPEED = 6
 TURN_SPEED = 2
 
-def initialize_rain():
-    """Initialize rain drops at random positions around the ship"""
-    global rain_drops, rain_initialized
+def initRain():
+    global rain_drops, rain_init
     rain_drops = []
-    
-    # Create rain drops in a large area around the ship
     for i in range(300):
-        # Distribute rain in a large area
         x = random.uniform(-1000, 1000)
         y = random.uniform(-1000, 1000)
-        z = random.uniform(100, 400)  # Height above water
+        z = random.uniform(100, 400)
         rain_drops.append([x, y, z])
-    
-    rain_initialized = True
+    rain_init = True
 
 
-def draw_rain():
-    """Draw rain as vertical lines falling straight down"""
-    if not rain_initialized:
+def drawRain():
+    if not rain_init:
         return
-    
-    glColor3f(0.7, 0.7, 0.9)  # Light gray/blue color for rain
+    glColor3f(0.7, 0.7, 0.9)
     glBegin(GL_LINES)
-    
-    for drop in rain_drops:
-        # Draw each rain drop as a vertical line
+    for drop in rain_drops: #vertical line rain
         glVertex3f(drop[0], drop[1], drop[2])
-        glVertex3f(drop[0], drop[1], drop[2] - 20)  # Line length of 20 units
-    
+        glVertex3f(drop[0], drop[1], drop[2] - 20)
     glEnd()
 
 
-def update_rain():
-    """Update rain drop positions to create falling effect"""
+def updateRain():
     global rain_drops
-    
-    if not rain_initialized:
+    if not rain_init:
         return
-    
     for drop in rain_drops:
-        # Move rain straight down
-        drop[2] -= 8  # Fall speed
-        
-        # Reset rain drops that fall below water
+        drop[2] -= 8
         if drop[2] < 0:
             drop[2] = random.uniform(300, 400)
-            # Keep rain drops relative to ship position
             drop[0] = ship_x + random.uniform(-1000, 1000)
             drop[1] = ship_y + random.uniform(-1000, 1000)
 
@@ -148,19 +131,10 @@ def draw_cannonball(ball):
     glPopMatrix()
 
 
-def draw_enemy_ship(enemy):
-    """Draw an enemy ship using draw_ship function with red colors and 1 mast"""
-    draw_ship(
-        x=enemy['x'],
-        y=enemy['y'],
-        z=enemy['z'],
-        rotation=enemy['rotation'],
-        hull_color=(0.6, 0.15, 0.15),
-        bow_color=(0.5, 0.1, 0.1),
-        sail_color=(0.9, 0.7, 0.7),
-        num_masts=1,
-        sail_state_override=2  # Always full sail for enemy
-    )
+def drawEnemyShip(enemy):
+    drawShip(x=enemy['x'], y=enemy['y'], z=enemy['z'], rotation=enemy['rotation'], hull_color=(0.6, 0.15, 0.15), bow_color=(0.5, 0.1, 0.1), sail_color=(0.9, 0.7, 0.7), mast_count=1, sail_state_override=2)
+
+
 def draw_range_indicator(direction):
     """Draw a red line/arrow showing the max range of cannonballs
     direction: 'left' for left side cannons, 'right' for right side cannons"""
@@ -177,12 +151,12 @@ def draw_range_indicator(direction):
     # Determine the direction for the range indicator
     if direction == 'right':
         # Right side cannons fire to the right
-        dir_x = right_x
-        dir_y = right_y
+        x_dir = right_x
+        y_dir = right_y
     else:
         # Left side cannons fire to the left
-        dir_x = -right_x
-        dir_y = -right_y
+        x_dir = -right_x
+        y_dir = -right_y
     
     # Calculate start and end points of the range indicator
     start_x = ship_x
@@ -190,8 +164,8 @@ def draw_range_indicator(direction):
     start_z = ship_z + 30  # Above the ship
     
     # End point is at maximum cannonball range
-    end_x = start_x + dir_x * cannonball_max_distance
-    end_y = start_y + dir_y * cannonball_max_distance
+    end_x = start_x + x_dir * cannonball_max_distance
+    end_y = start_y + y_dir * cannonball_max_distance
     end_z = start_z
     
     # Draw the line in red
@@ -207,20 +181,20 @@ def draw_range_indicator(direction):
     arrow_size = 20
     
     # Create perpendicular vectors for the arrowhead
-    perp_x = -dir_y
-    perp_y = dir_x
+    perp_x = -y_dir
+    perp_y = x_dir
     
     # Draw arrowhead triangle
     glBegin(GL_TRIANGLES)
     # Tip of arrow
     glVertex3f(end_x, end_y, end_z)
     # Back left of arrowhead
-    glVertex3f(end_x - dir_x * arrow_size + perp_x * arrow_size * 0.3, 
-               end_y - dir_y * arrow_size + perp_y * arrow_size * 0.3, 
+    glVertex3f(end_x - x_dir * arrow_size + perp_x * arrow_size * 0.3, 
+               end_y - y_dir * arrow_size + perp_y * arrow_size * 0.3, 
                end_z)
     # Back right of arrowhead
-    glVertex3f(end_x - dir_x * arrow_size - perp_x * arrow_size * 0.3, 
-               end_y - dir_y * arrow_size - perp_y * arrow_size * 0.3, 
+    glVertex3f(end_x - x_dir * arrow_size - perp_x * arrow_size * 0.3, 
+               end_y - y_dir * arrow_size - perp_y * arrow_size * 0.3, 
                end_z)
     glEnd()
 
@@ -273,12 +247,12 @@ def draw_wave():
     glDisable(GL_BLEND)
 
 
-def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
+def drawText(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glColor3f(1, 1, 1)
     glMatrixMode(GL_PROJECTION)
     glPushMatrix()
     glLoadIdentity()
-    gluOrtho2D(0, 1000, 0, 800)  # left, right, bottom, top
+    gluOrtho2D(0, 1000, 0, 800)
     glMatrixMode(GL_MODELVIEW)
     glPushMatrix()
     glLoadIdentity()
@@ -291,8 +265,7 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glMatrixMode(GL_MODELVIEW)
 
 
-def draw_ship(x=None, y=None, z=None, rotation=None, hull_color=(0.4, 0.2, 0.1), bow_color=(0.35, 0.18, 0.09), sail_color=(0.9, 0.9, 0.9), num_masts=2, sail_state_override=None):
-    # Use player ship values if not provided
+def drawShip(x=None, y=None, z=None, rotation=None, hull_color=(0.4, 0.2, 0.1), bow_color=(0.35, 0.18, 0.09), sail_color=(0.9, 0.9, 0.9), mast_count=2, sail_state_override=None):
     if x is None:
         x = ship_x
     if y is None:
@@ -321,71 +294,66 @@ def draw_ship(x=None, y=None, z=None, rotation=None, hull_color=(0.4, 0.2, 0.1),
     glColor3f(*bow_color)
     glBegin(GL_TRIANGLES)
     # Bottom face - left triangle
-    glVertex3f(bow_tip_x, 0, -bow_height)      # Tip bottom
-    glVertex3f(bow_back_x, -bow_width, -bow_height)  # Back left bottom
-    glVertex3f(bow_back_x, bow_width, -bow_height)   # Back right bottom
+    glVertex3f(bow_tip_x, 0, -bow_height)
+    glVertex3f(bow_back_x, -bow_width, -bow_height)
+    glVertex3f(bow_back_x, bow_width, -bow_height)
     
     # Top face - triangle
-    glVertex3f(bow_tip_x, 0, bow_height)       # Tip top
-    glVertex3f(bow_back_x, bow_width, bow_height)    # Back right top
-    glVertex3f(bow_back_x, -bow_width, bow_height)   # Back left top
+    glVertex3f(bow_tip_x, 0, bow_height)
+    glVertex3f(bow_back_x, bow_width, bow_height)
+    glVertex3f(bow_back_x, -bow_width, bow_height)
     
     # Left side face
-    glVertex3f(bow_tip_x, 0, -bow_height)      # Tip bottom
-    glVertex3f(bow_tip_x, 0, bow_height)       # Tip top
-    glVertex3f(bow_back_x, -bow_width, bow_height)   # Back left top
+    glVertex3f(bow_tip_x, 0, -bow_height)
+    glVertex3f(bow_tip_x, 0, bow_height)
+    glVertex3f(bow_back_x, -bow_width, bow_height)
     
-    glVertex3f(bow_tip_x, 0, -bow_height)      # Tip bottom
-    glVertex3f(bow_back_x, -bow_width, bow_height)   # Back left top
-    glVertex3f(bow_back_x, -bow_width, -bow_height)  # Back left bottom
+    glVertex3f(bow_tip_x, 0, -bow_height)
+    glVertex3f(bow_back_x, -bow_width, bow_height)
+    glVertex3f(bow_back_x, -bow_width, -bow_height)
     
     # Right side face
-    glVertex3f(bow_tip_x, 0, -bow_height)      # Tip bottom
-    glVertex3f(bow_back_x, bow_width, -bow_height)   # Back right bottom
-    glVertex3f(bow_back_x, bow_width, bow_height)    # Back right top
+    glVertex3f(bow_tip_x, 0, -bow_height)
+    glVertex3f(bow_back_x, bow_width, -bow_height)
+    glVertex3f(bow_back_x, bow_width, bow_height)
     
-    glVertex3f(bow_tip_x, 0, -bow_height)      # Tip bottom
-    glVertex3f(bow_back_x, bow_width, bow_height)    # Back right top
-    glVertex3f(bow_tip_x, 0, bow_height)       # Tip top
+    glVertex3f(bow_tip_x, 0, -bow_height)
+    glVertex3f(bow_back_x, bow_width, bow_height)
+    glVertex3f(bow_tip_x, 0, bow_height)
     glEnd()
     
     # Back face to connect with hull
     glBegin(GL_QUADS)
-    glVertex3f(bow_back_x, -bow_width, -bow_height)  # Back left bottom
-    glVertex3f(bow_back_x, -bow_width, bow_height)   # Back left top
-    glVertex3f(bow_back_x, bow_width, bow_height)    # Back right top
-    glVertex3f(bow_back_x, bow_width, -bow_height)   # Back right bottom
+    glVertex3f(bow_back_x, -bow_width, -bow_height)
+    glVertex3f(bow_back_x, -bow_width, bow_height)
+    glVertex3f(bow_back_x, bow_width, bow_height)
+    glVertex3f(bow_back_x, bow_width, -bow_height)
     glEnd()
     
-    # Draw masts based on num_masts
+    #draw masts
     glColor3f(0.3, 0.3, 0.3)
-    if num_masts == 1:
-        # Single mast in center
+    if mast_count == 1: #for enemy ship
         glPushMatrix()
         glTranslatef(0, 0, 35)
         gluCylinder(gluNewQuadric(), 6, 6, 150, 10, 10)
         glPopMatrix()
-    elif num_masts == 2:
-        # Draw first mast - front
-        glPushMatrix()
+    elif mast_count == 2:
+        glPushMatrix()#first mast
         glTranslatef(70, 0, 35)
         gluCylinder(gluNewQuadric(), 6, 6, 150, 10, 10)
         glPopMatrix()
-        
-        # Draw second mast - rear
-        glPushMatrix()
+        glPushMatrix()#second mast
         glTranslatef(-70, 0, 35)
         gluCylinder(gluNewQuadric(), 6, 6, 150, 10, 10)
         glPopMatrix()
     
-    # Draw sails
+    #draw sails
     if current_sail_state > 0 or sail_state_override is not None:
         glColor3f(*sail_color)
         sail_width = 42 if current_sail_state == 1 else 60
         sail_height = 48 if current_sail_state == 1 else 75
         
-        if num_masts == 1:
-            # Single sail in center
+        if mast_count == 1: #for enemy ship
             glPushMatrix()
             glTranslatef(0, 0, 90)
             glRotatef(90, 0, 0, 1)
@@ -396,9 +364,8 @@ def draw_ship(x=None, y=None, z=None, rotation=None, hull_color=(0.4, 0.2, 0.1),
             glVertex3f(-sail_width, 0, 0)
             glEnd()
             glPopMatrix()
-        elif num_masts == 2:
-            # Front mast sail
-            glPushMatrix()
+        elif mast_count == 2:
+            glPushMatrix()#front mast sail
             glTranslatef(70, 0, 90)
             glRotatef(90, 0, 0, 1)
             glBegin(GL_QUADS)
@@ -408,9 +375,7 @@ def draw_ship(x=None, y=None, z=None, rotation=None, hull_color=(0.4, 0.2, 0.1),
             glVertex3f(-sail_width, 0, 0)
             glEnd()
             glPopMatrix()
-            
-            # Rear mast sail
-            glPushMatrix()
+            glPushMatrix()#fear mast sail
             glTranslatef(-70, 0, 90)
             glRotatef(90, 0, 0, 1)
             glBegin(GL_QUADS)
@@ -421,7 +386,7 @@ def draw_ship(x=None, y=None, z=None, rotation=None, hull_color=(0.4, 0.2, 0.1),
             glEnd()
             glPopMatrix()
     
-    # Draw cannons
+    #draw cannons
     glColor3f(0.2, 0.2, 0.2)
     for x_pos in cannon_positions:
         glPushMatrix()
@@ -480,92 +445,57 @@ def draw_ocean():
     glPopMatrix()
 
 
-def spawn_enemy():
-    """Spawn a new enemy ship at a random position around the player"""
-    # Spawn at distance 1500-2000 from player (further away)
+def spawnEnemy():
     angle = random.uniform(0, 360)
     distance = random.uniform(1500, 2000)
-    
     rad = math.radians(angle)
     x = ship_x + distance * math.cos(rad)
     y = ship_y + distance * math.sin(rad)
-    
-    enemy = {
-        'x': x,
-        'y': y,
-        'z': 50,
-        'rotation': 0,
-        'health': enemy_health,
-        'last_fire_time': 0,
-        'sinking': False,
-        'sink_depth': 50
-    }
-    enemies.append(enemy)
-    print(f"Enemy ship spawned! Total enemies: {len(enemies)}")
+    enemy = {'x': x, 'y': y, 'z': 50, 'rotation': 0, 'health': enemy_health, 'last_fire_time': 0, 'sinking': False, 'sink_depth': 50}
+    enemy_list.append(enemy)
 
 
-def update_enemy_ai():
-    """Update enemy ship AI - movement, positioning, and firing"""
-    enemies_to_remove = []
-    
-    for enemy in enemies:
+def updateEnemyAi():
+    remove_enemy = []
+    for enemy in enemy_list:
         if enemy['sinking']:
-            # Sink the enemy ship
             if enemy['sink_depth'] > -35:
                 enemy['sink_depth'] -= 0.5
                 enemy['z'] = enemy['sink_depth']
             else:
-                enemies_to_remove.append(enemy)
+                remove_enemy.append(enemy)
             continue
         
-        # Calculate distance and direction to player
-        dx = ship_x - enemy['x']
+        dx = ship_x - enemy['x'] #calc dist and dir
         dy = ship_y - enemy['y']
         distance = math.sqrt(dx * dx + dy * dy)
+
+        if distance < 1: continue
+        x_dir = dx / distance
+        y_dir = dy / distance
         
-        if distance < 1:
-            continue
-        
-        # Normalize direction
-        dir_x = dx / distance
-        dir_y = dy / distance
-        
-        # Calculate angle to player
-        angle_to_player = math.degrees(math.atan2(dy, dx))
-        
-        # Behavior: Position broadside to player at optimal distance
-        if distance > enemy_optimal_distance + 50:
-            # Move closer to player
-            enemy['x'] += dir_x * enemy_speed
-            enemy['y'] += dir_y * enemy_speed
-            # Face the player while approaching
+        angle_to_player = math.degrees(math.atan2(dy, dx))#calc angle
+        if distance > enemy_optimal_distance + 50: #change position of enemy
+            enemy['x'] += x_dir * enemy_speed
+            enemy['y'] += y_dir * enemy_speed
             enemy['rotation'] = angle_to_player
         elif distance < enemy_optimal_distance - 50:
-            # Move away from player
-            enemy['x'] -= dir_x * enemy_speed
-            enemy['y'] -= dir_y * enemy_speed
-            # Face away while retreating
+            enemy['x'] -= x_dir * enemy_speed
+            enemy['y'] -= y_dir * enemy_speed
             enemy['rotation'] = angle_to_player + 180
-        else:
-            # At optimal distance - position broadside (perpendicular)
-            # Rotate to be perpendicular to player (90 degrees offset)
-            enemy['rotation'] = angle_to_player + 90
-            
-            # Strafe to maintain broadside position
-            # Move perpendicular to the line between ships
-            perp_x = -dir_y
-            perp_y = dir_x
+        else: #at perfect dist, rotate to shoot 
+            enemy['rotation'] = angle_to_player + 90 
+            perp_x = -y_dir #move to get goog position
+            perp_y = x_dir
             enemy['x'] += perp_x * enemy_speed * 0.3
             enemy['y'] += perp_y * enemy_speed * 0.3
-        
-        # Fire cannons if in range
-        if distance <= enemy_attack_range:
+
+        if distance <= enemy_attack_range:# enemy attack if in range
             fire_enemy_cannons(enemy)
     
-    # Remove fully sunken enemies
-    for enemy in enemies_to_remove:
-        if enemy in enemies:
-            enemies.remove(enemy)
+    for enemy in remove_enemy: #remove after enemy_list sunk
+        if enemy in enemy_list:
+            enemy_list.remove(enemy)
 
 
 def fire_enemy_cannons(enemy):
@@ -585,8 +515,8 @@ def fire_enemy_cannons(enemy):
         return
     
     # Normalize direction
-    dir_x = dx / distance
-    dir_y = dy / distance
+    x_dir = dx / distance
+    y_dir = dy / distance
     
     # Enemy rotation
     rad = math.radians(enemy['rotation'])
@@ -595,7 +525,7 @@ def fire_enemy_cannons(enemy):
     right_x = math.sin(rad)
     right_y = -math.cos(rad)
     
-    # Fire from both sides (2 cannons per side for enemies)
+    # Fire from both sides (2 cannons per side for enemy_list)
     for x_pos in [60, -60]:
         # Right side
         cannon_world_x = enemy['x'] + x_pos * forward_x + 70 * right_x
@@ -604,7 +534,7 @@ def fire_enemy_cannons(enemy):
         
         cannonballs.append({
             'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
-            'dir': [dir_x, dir_y, 0.0],
+            'dir': [x_dir, y_dir, 0.0],
             'travelled': 0.0,
             'enemy_shot': True  # Mark as enemy shot
         })
@@ -615,7 +545,7 @@ def fire_enemy_cannons(enemy):
         
         cannonballs.append({
             'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
-            'dir': [dir_x, dir_y, 0.0],
+            'dir': [x_dir, y_dir, 0.0],
             'travelled': 0.0,
             'enemy_shot': True
         })
@@ -630,7 +560,7 @@ def check_cannonball_hits():
     for ball in cannonballs:
         # Check if player shot hit an enemy
         if not ball.get('enemy_shot', False):
-            for enemy in enemies:
+            for enemy in enemy_list:
                 if enemy['sinking']:
                     continue
                 
@@ -766,21 +696,17 @@ def update_cannonballs():
             cannonballs.remove(ball)
 
 
-def update_ship_movement():
+def updateShipMovement():
     global ship_x, ship_y, ship_speed
-    
-    # Stop movement if ship is sinking
     if ship_sinking:
         ship_speed = 0
         return
-    
     if sail_state == 0:
-        ship_speed = SPEED_NO_SAIL
+        ship_speed = NO_SAIL_SPEED
     elif sail_state == 1:
-        ship_speed = SPEED_HALF_SAIL
+        ship_speed = HALF_SAIL_SPEED
     else:
-        ship_speed = SPEED_FULL_SAIL
-    
+        ship_speed = FULL_SAIL_SPEED
     if ship_speed > 0:
         rad = math.radians(ship_rotation)
         ship_x += ship_speed * math.cos(rad)
@@ -788,35 +714,34 @@ def update_ship_movement():
 
 
 def keyboardListener(key, x, y):
-    global sail_state
-    
-    # Prevent controls when sinking
+    global sail_state, ship_rotation
     if ship_sinking:
         if key == b'r':
-            reset_game()
+            resetGame()
         return
     
-    # Raise sails (W key)
-    if key == b'w':
+    if key == b'w':#raise sails
         if sail_state < 2:
             sail_state += 1
     
-    # Lower sails (S key)
-    if key == b's':
+    if key == b's':#lower sails
         if sail_state > 0:
             sail_state -= 1
     
-    # Turn ship left (A key)
-    if key == b'a':
-        pass  # Handled in specialKeyListener for continuous turning
+    if key == b'a':#turn left
+        if ship_speed > 0:  # Can only turn when ship is moving
+            ship_rotation += TURN_SPEED
+            if ship_rotation >= 360:
+                ship_rotation -= 360
     
-    # Turn ship right (D key)
-    if key == b'd':
-        pass  # Handled in specialKeyListener for continuous turning
+    if key == b'd':#turn right
+        if ship_speed > 0:  # Can only turn when ship is moving
+            ship_rotation -= TURN_SPEED
+            if ship_rotation < 0:
+                ship_rotation += 360
     
-    # Reset the game (R key)
-    if key == b'r':
-        reset_game()
+    if key == b'r':#reset
+        resetGame()
     
     if key == b'\x1b':  #ESC
         glutLeaveMainLoop()
@@ -825,29 +750,29 @@ def keyboardListener(key, x, y):
 def specialKeyListener(key, x, y):
     global camera_distance, camera_angle, ship_rotation
     
-    # Move camera up (UP arrow key)
+    #move camera up
     if key == GLUT_KEY_UP:
         camera_distance -= 20
         if camera_distance < 200:
             camera_distance = 200
     
-    # Move camera down (DOWN arrow key)
+    #move camera down
     if key == GLUT_KEY_DOWN:
         camera_distance += 20
         if camera_distance > 1000:
             camera_distance = 1000
     
-    # Rotate camera left (LEFT arrow key)
+    #rotate camera left
     if key == GLUT_KEY_LEFT:
         camera_angle += 5
     
-    # Rotate camera right (RIGHT arrow key)
+    #rotate camera right
     if key == GLUT_KEY_RIGHT:
         camera_angle -= 5
 
 
 def mouseListener(button, state, x, y):
-    # Disable firing when ship is sinking
+    #no left click fire when sinking
     if ship_sinking:
         return
     
@@ -861,86 +786,65 @@ def setupCamera():
     gluPerspective(fovY, 1.25, 0.1, 10000)
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
-    
     cam_angle_rad = math.radians(ship_rotation + camera_angle)
     cam_x = ship_x - camera_distance * math.cos(cam_angle_rad)
     cam_y = ship_y - camera_distance * math.sin(cam_angle_rad)
-    cam_z = camera_distance * 0.4  # Camera height
+    cam_z = camera_distance * 0.4
     gluLookAt(cam_x, cam_y, cam_z, ship_x, ship_y, ship_z, 0, 0, 1)
 
 
-def update_storm_system():
-    """Manage storm timing and state transitions"""
-    global storm_active, storm_start_time, last_storm_end_time, rain_initialized
+def updateStorm():
+    global storm_active, storm_start_time, last_storm_end_time, rain_init
     global game_start_time
-    
     current_time = time.time()
     elapsed_game_time = current_time - game_start_time
     
-    # Check if storm should start (30 seconds after game start or after enemy destroyed)
     if not storm_active:
-        # First storm after 30 seconds
-        if elapsed_game_time >= time_until_first_storm and last_storm_end_time == 0:
-            start_storm()
-        # Subsequent storms happen after enemy destroyed (not implemented yet)
-        # For now, just cycle storms every 40 seconds (30 wait + 10 storm)
-        elif last_storm_end_time > 0 and (current_time - last_storm_end_time) >= 30:
-            start_storm()
-    else:
-        # Check if storm should end (after 10 seconds)
-        if (current_time - storm_start_time) >= storm_duration:
-            end_storm()
+        if elapsed_game_time >= time_until_first_storm and last_storm_end_time == 0: #start storm after gameplay
+            startStorm()
+        elif last_storm_end_time > 0 and (current_time - last_storm_end_time) >= 30: #again storm after 30s
+            startStorm()
+    elif (current_time - storm_start_time) >= storm_duration: #storm end after 10s
+        endStorm()
 
 
-def start_storm():
-    """Start a storm event"""
-    global storm_active, storm_start_time, rain_initialized
+def startStorm():
+    global storm_active, storm_start_time, rain_init
     storm_active = True
     storm_start_time = time.time()
-    rain_initialized = False  # Force rain re-initialization
-    initialize_rain()
+    rain_init = False
+    initRain()
 
-def end_storm():
-    """End the current storm"""
-    global storm_active, last_storm_end_time, rain_initialized
+
+def endStorm():
+    global storm_active, last_storm_end_time, rain_init
     global wave_active, wave_x, wave_y, wave_direction_x, wave_direction_y
-    
     storm_active = False
     last_storm_end_time = time.time()
-    rain_initialized = False
-    
-    # Spawn a wave in front of the ship
+    rain_init = False
     spawn_wave()
-    # Spawn enemy ship after storm ends
-    spawn_enemy()
-    print("Storm has ended!")
+    spawnEnemy()
 
 
-def apply_storm_damage():
-    """Apply damage to ship based on sail state during storm"""
+def applyStormDamage():
     global ship_health, last_damage_time, ship_sinking
-    
     if not storm_active or ship_sinking:
         return
     
     current_time = time.time()
-    # Apply damage once per second
-    if current_time - last_damage_time >= 1.0:
+    if current_time - last_damage_time >= 1.0:#damage every sec
         if sail_state == 2:  # Full sail
-            ship_health -= 5
-        elif sail_state == 1:  # Half sail
             ship_health -= 2
-        # No sail takes no damage
-        
+        elif sail_state == 1:  # Half sail
+            ship_health -= 1
         last_damage_time = current_time
         
-        # Check if ship is destroyed
-        if ship_health <= 0:
+        if ship_health <= 0:#destroyed check
             ship_health = 0
             ship_sinking = True
 
 
-def update_sinking():
+def updateSinking():
     """Gradually sink the ship into the ocean"""
     global ship_z, ship_speed
     
@@ -969,21 +873,20 @@ def spawn_wave():
     attack_angle = ship_rad + math.radians(random_offset)
 
     # Spawn direction
-    spawn_dir_x = math.cos(attack_angle)
-    spawn_dir_y = math.sin(attack_angle)
+    spawn_x_dir = math.cos(attack_angle)
+    spawn_y_dir = math.sin(attack_angle)
 
     # Spawn wave far away in that direction
-    wave_x = ship_x + spawn_dir_x * wave_spawn_distance
-    wave_y = ship_y + spawn_dir_y * wave_spawn_distance
+    wave_x = ship_x + spawn_x_dir * wave_spawn_distance
+    wave_y = ship_y + spawn_y_dir * wave_spawn_distance
 
     # ✅ Wave always moves toward ship
-    wave_direction_x = -spawn_dir_x
-    wave_direction_y = -spawn_dir_y
+    wave_direction_x = -spawn_x_dir
+    wave_direction_y = -spawn_y_dir
 
     wave_active = True
 
     print("Wave Spawned Offset:", random_offset)
-
 
 
 def update_wave():
@@ -1026,13 +929,13 @@ def check_wave_collision():
         # Normalize wave direction
         wave_mag = math.sqrt(wave_direction_x**2 + wave_direction_y**2)
         if wave_mag > 0:
-            norm_wave_dir_x = wave_direction_x / wave_mag
-            norm_wave_dir_y = wave_direction_y / wave_mag
+            norm_wave_x_dir = wave_direction_x / wave_mag
+            norm_wave_y_dir = wave_direction_y / wave_mag
         else:
             return
         
         # Calculate dot product (cosine of angle)
-        dot_product = ship_forward_x * norm_wave_dir_x + ship_forward_y * norm_wave_dir_y
+        dot_product = ship_forward_x * norm_wave_x_dir + ship_forward_y * norm_wave_y_dir
         
         # Convert to angle (radians)
         angle_rad = math.acos(max(-1, min(1, dot_product)))
@@ -1047,12 +950,12 @@ def check_wave_collision():
                 last_wave_damage_time = current_time
 
 
-def reset_game():
+def resetGame():
     global ship_x, ship_y, ship_z, ship_rotation, ship_speed, sail_state
     global storm_active, storm_start_time, last_storm_end_time, game_start_time
-    global ship_health, last_damage_time, rain_initialized, ship_sinking
+    global ship_health, last_damage_time, rain_init, ship_sinking
     global cannonballs, last_fire_time, wave_active, last_wave_damage_time
-    global cannonballs, last_fire_time, enemies
+    global cannonballs, last_fire_time, enemy_list
     
     ship_x = 0
     ship_y = 0
@@ -1061,33 +964,27 @@ def reset_game():
     ship_speed = 0
     sail_state = 0
     
-    # Reset storm system
     storm_active = False
     storm_start_time = 0
     last_storm_end_time = 0
     game_start_time = time.time()
-    rain_initialized = False
+    rain_init = False
     
-    # Reset health and sinking
     ship_health = 100
     last_damage_time = 0
     ship_sinking = False
     
-    # Reset cannon system
     cannonballs.clear()
     last_fire_time = 0
     
-    # Reset wave system
     wave_active = False
     last_wave_damage_time = 0
-
     print("Game reset!")
+    enemy_list.clear()
 
 
-    # Reset enemies
-    enemies.clear()
 def idle():
-    update_ship_movement()
+    updateShipMovement()
     glutPostRedisplay()
 
 
@@ -1097,48 +994,43 @@ def showScreen():
     glViewport(0, 0, 1000, 800)
     setupCamera()
     draw_ocean()
-    draw_ship()
+    drawShip()
     
     # Draw wave if active
     if wave_active:
         draw_wave()
     
-    # Draw enemy ships
-    for enemy in enemies:
-        draw_enemy_ship(enemy)
+    for enemy in enemy_list:
+        drawEnemyShip(enemy)
     # Draw range indicator when aiming
     if aiming_left:
         draw_range_indicator('left')
     if aiming_right:
         draw_range_indicator('right')
     
-    # Draw cannonballs
     for ball in cannonballs:
         draw_cannonball(ball)
     
-    # Draw rain if storm is active
     if storm_active:
-        draw_rain()
+        drawRain()
     
-    # Display UI text
-    draw_text(10, 770, f"Sail State: {['No Sail', 'Half Sail', 'Full Sail'][sail_state]}")
-    draw_text(10, 740, f"Health: {ship_health}/{max_health}")
+    drawText(10, 770, f"Sail State: {['No Sail', 'Half Sail', 'Full Sail'][sail_state]}")
+    drawText(10, 740, f"Health: {ship_health}/{max_health}")
     
     if ship_sinking:
-        draw_text(300, 400, "GAME OVER - SHIP SINKING!")
-        draw_text(350, 370, "Press R to Restart")
+        drawText(300, 400, "GAME OVER - SHIP SINKING!")
+        drawText(350, 370, "Press R to Restart")
     elif storm_active:
-        draw_text(10, 710, "STORM ACTIVE!")
+        drawText(10, 710, "STORM ACTIVE!")
         if sail_state == 2:
-            draw_text(10, 680, "Full Sail: -5 HP/sec")
+            drawText(10, 680, "Full Sail: -2 HP/sec")
         elif sail_state == 1:
-            draw_text(10, 680, "Half Sail: -2 HP/sec")
-    
+            drawText(10, 680, "Half Sail: -1 HP/sec")
     glutSwapBuffers()
-
 keys_pressed = set()
 
-def keyboard_down(key, x, y):
+
+def keyboardDown(key, x, y):
     keys_pressed.add(key)
     
     # Handle aiming
@@ -1150,7 +1042,8 @@ def keyboard_down(key, x, y):
     
     keyboardListener(key, x, y)
 
-def keyboard_up(key, x, y):
+
+def keyboardUp(key, x, y):
     if key in keys_pressed:
         keys_pressed.remove(key)
     
@@ -1161,46 +1054,25 @@ def keyboard_up(key, x, y):
     elif key == b'e':
         aiming_right = False
 
-def update_continuous_keys():
-    global ship_rotation
-    
-    # Can't turn when sinking
-    if ship_sinking:
-        return
-    
-    # Can only turn when ship is moving
-    if ship_speed > 0:
-        # Turn left (A key)
-        if b'a' in keys_pressed:
-            ship_rotation += TURN_SPEED
-            if ship_rotation >= 360:
-                ship_rotation -= 360
-        
-        # Turn right (D key)
-        if b'd' in keys_pressed:
-            ship_rotation -= TURN_SPEED
-            if ship_rotation < 0:
-                ship_rotation += 360
 
-def idle_with_keys():
-    # When ship is sinking, pause gameplay but continue sinking animation
+def idleWithKeys():
     if ship_sinking:
-        update_sinking()
+        updateSinking()
         glutPostRedisplay()
         return
     
-    update_continuous_keys()
-    update_ship_movement()
-    update_storm_system()
-    apply_storm_damage()
-    update_sinking()
+    updateShipMovement()
+    updateStorm()
+    applyStormDamage()
+    updateSinking()
     update_cannonballs()
     update_wave()
-    update_enemy_ai()
+    updateEnemyAi()
     check_cannonball_hits()
     if storm_active:
-        update_rain()
+        updateRain()
     glutPostRedisplay()
+
 
 def main():
     glutInit()
@@ -1208,17 +1080,15 @@ def main():
     glutInitWindowSize(1000, 800)
     glutInitWindowPosition(0, 0)
     wind = glutCreateWindow(b"Pirate Ship Battle Game")
-    
     glEnable(GL_DEPTH_TEST)
-    
     glutDisplayFunc(showScreen)
-    glutKeyboardFunc(keyboard_down)
-    glutKeyboardUpFunc(keyboard_up)
+    glutKeyboardFunc(keyboardDown)
+    glutKeyboardUpFunc(keyboardUp)
     glutSpecialFunc(specialKeyListener)
     glutMouseFunc(mouseListener)
-    glutIdleFunc(idle_with_keys)
-    
+    glutIdleFunc(idleWithKeys)
     glutMainLoop()
+
 
 if __name__ == "__main__":
     main()
