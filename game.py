@@ -122,7 +122,7 @@ def updateRain():
             drop[1] = ship_y + random.uniform(-1000, 1000)
 
 
-def draw_cannonball(ball):
+def drawCannonball(ball):
     """Draw a single cannonball"""
     glPushMatrix()
     glTranslatef(ball['pos'][0], ball['pos'][1], ball['pos'][2])
@@ -404,31 +404,29 @@ def drawShip(x=None, y=None, z=None, rotation=None, hull_color=(0.4, 0.2, 0.1), 
     glPopMatrix()
 
 
-def draw_ocean():
+def drawOcean():
     glPushMatrix()
-    # Draw ocean as multiple quads in a grid pattern
     tile_size = 100
-    tiles = 30  # Number of tiles in each direction
-    
-    # Calculate which tile the ship is on
+    tiles = 30  # tiles in each direction
+
+    # Calculating which tile the ship is on
     ship_tile_x = int(ship_x / tile_size)
     ship_tile_y = int(ship_y / tile_size)
     
     # Draw tiles centered around the ship's position
     for i in range(ship_tile_x - tiles, ship_tile_x + tiles):
         for j in range(ship_tile_y - tiles, ship_tile_y + tiles):
-            # Alternate colors for checkerboard pattern
-            # Darken ocean during storm
+            # Alternate color 
             if storm_active:
                 if (i + j) % 2 == 0:
-                    glColor3f(0.15, 0.3, 0.35)  # Dark gray-blue
+                    glColor3f(0.15, 0.3, 0.35)  
                 else:
-                    glColor3f(0.2, 0.35, 0.4)  # Slightly lighter dark gray-blue
+                    glColor3f(0.2, 0.35, 0.4) 
             else:
                 if (i + j) % 2 == 0:
-                    glColor3f(0.2, 0.6, 0.8)  # Brighter blue
+                    glColor3f(0.2, 0.6, 0.8) 
                 else:
-                    glColor3f(0.3, 0.7, 0.9)  # Even brighter blue
+                    glColor3f(0.3, 0.7, 0.9)
             
             x1 = i * tile_size
             y1 = j * tile_size
@@ -528,44 +526,41 @@ def fire_enemy_cannons(enemy):
     # Fire from both sides (2 cannons per side for enemy_list)
     for x_pos in [60, -60]:
         # Right side
-        cannon_world_x = enemy['x'] + x_pos * forward_x + 70 * right_x
-        cannon_world_y = enemy['y'] + x_pos * forward_y + 70 * right_y
-        cannon_world_z = enemy['z'] + 10
+        final_cannon_x = enemy['x'] + x_pos * forward_x + 70 * right_x
+        final_cannon_y = enemy['y'] + x_pos * forward_y + 70 * right_y
+        final_cannon_z = enemy['z'] + 10
         
         cannonballs.append({
-            'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
-            'dir': [x_dir, y_dir, 0.0],
+            'pos': [final_cannon_x, final_cannon_y, final_cannon_z],
+            'dir': [dir_x, dir_y, 0.0],
             'travelled': 0.0,
             'enemy_shot': True  # Mark as enemy shot
         })
         
         # Left side
-        cannon_world_x = enemy['x'] + x_pos * forward_x - 70 * right_x
-        cannon_world_y = enemy['y'] + x_pos * forward_y - 70 * right_y
+        final_cannon_x = enemy['x'] + x_pos * forward_x - 70 * right_x
+        final_cannon_y = enemy['y'] + x_pos * forward_y - 70 * right_y
         
         cannonballs.append({
-            'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
-            'dir': [x_dir, y_dir, 0.0],
+            'pos': [final_cannon_x, final_cannon_y, final_cannon_z],
+            'dir': [dir_x, dir_y, 0.0],
             'travelled': 0.0,
             'enemy_shot': True
         })
 
 
-def check_cannonball_hits():
-    """Check if cannonballs hit ships"""
+def checkCannonballHits():
     global ship_health, ship_sinking
-    
     balls_to_remove = []
-    
     for ball in cannonballs:
-        # Check if player shot hit an enemy
+        # Checking if player shot hit an enemy
         if not ball.get('enemy_shot', False):
             for enemy in enemy_list:
                 if enemy['sinking']:
                     continue
                 
                 dx = ball['pos'][0] - enemy['x']
-                dy = ball['pos'][1] - enemy['y']
+                dy = ball['pos'][1] - enemy['y'] 
                 dz = ball['pos'][2] - enemy['z']
                 dist = math.sqrt(dx*dx + dy*dy + dz*dz)
                 
@@ -598,18 +593,16 @@ def check_cannonball_hits():
                         print("Your ship is sinking!")
                     break
     
-    # Remove hit cannonballs
+ 
     for ball in balls_to_remove:
         if ball in cannonballs:
             cannonballs.remove(ball)
 
 
-def fire_cannons():
+def fireCannons():
     global last_fire_time
-
     if not aiming_left and not aiming_right:
         return
-    
     # Check cooldown
     current_time = time.time()
     if current_time - last_fire_time < fire_cooldown:
@@ -620,59 +613,56 @@ def fire_cannons():
         return
     
     last_fire_time = current_time
-    
-    # Calculate direction the ship is facing
+
+    # Direction of ship facing
     rad = math.radians(ship_rotation)
     forward_x = math.cos(rad)
     forward_y = math.sin(rad)
-    
-    # Calculate perpendicular direction (for left and right sides)
-    # Right side is 90 degrees clockwise from forward
+
+    #Perpendicular direction
     right_x = math.sin(rad)
     right_y = -math.cos(rad)
     
-    # Fire from right side (all 4 cannons)
+
     if aiming_right:
         for x_pos in cannon_positions:
-            # Calculate cannon world position
-            # First rotate the cannon position, then add to ship position
+            
             cannon_local_x = x_pos
             cannon_local_y = cannon_offset
-            
-            cannon_world_x = ship_x + cannon_local_x * forward_x + cannon_local_y * right_x
-            cannon_world_y = ship_y + cannon_local_x * forward_y + cannon_local_y * right_y
-            cannon_world_z = ship_z + 10
+            #Cannon final position 
+            final_cannon_x = ship_x + cannon_local_x * forward_x + cannon_local_y * right_x
+            final_cannon_y = ship_y + cannon_local_x * forward_y + cannon_local_y * right_y
+            final_cannon_z = ship_z + 10
             
             # Cannonball fires perpendicular to ship (right side)
             cannonballs.append({
-                'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
+                'pos': [final_cannon_x, final_cannon_y, final_cannon_z],
                 'dir': [right_x, right_y, 0.0],
                 'travelled': 0.0,
                 'enemy_shot': False  # Mark as player shot
             })
     
-    # Fire from left side (all 4 cannons)
+    # Fire from left side
     if aiming_left:
         for x_pos in cannon_positions:
             # Calculate cannon world position
             cannon_local_x = x_pos
             cannon_local_y = -cannon_offset
             
-            cannon_world_x = ship_x + cannon_local_x * forward_x + cannon_local_y * right_x
-            cannon_world_y = ship_y + cannon_local_x * forward_y + cannon_local_y * right_y
-            cannon_world_z = ship_z + 10
+            final_cannon_x = ship_x + cannon_local_x * forward_x + cannon_local_y * right_x
+            final_cannon_y = ship_y + cannon_local_x * forward_y + cannon_local_y * right_y
+            final_cannon_z = ship_z + 10
             
-            # Cannonball fires perpendicular to ship (left side)
+            # Cannonball fires perpendicular to ship
             cannonballs.append({
-                'pos': [cannon_world_x, cannon_world_y, cannon_world_z],
+                'pos': [final_cannon_x, final_cannon_y, final_cannon_z],
                 'dir': [-right_x, -right_y, 0.0],
                 'travelled': 0.0,
                 'enemy_shot': False  # Mark as player shot
             })
 
 
-def update_cannonballs():
-    """Update cannonball positions and remove those that have traveled too far"""
+def updateCannonballs():
     global cannonballs
     
     balls_to_remove = []
@@ -683,14 +673,14 @@ def update_cannonballs():
         ball['pos'][1] += ball['dir'][1] * cannonball_speed
         ball['pos'][2] += ball['dir'][2] * cannonball_speed
         
-        # Track distance travelled
+        # distance travelled
         ball['travelled'] += cannonball_speed
         
-        # Remove if traveled too far (max distance)
+        # Remove if traveled too far
         if ball['travelled'] >= cannonball_max_distance:
             balls_to_remove.append(ball)
     
-    # Remove marked cannonballs
+
     for ball in balls_to_remove:
         if ball in cannonballs:
             cannonballs.remove(ball)
@@ -777,7 +767,7 @@ def mouseListener(button, state, x, y):
         return
     
     if button == GLUT_LEFT_BUTTON and state == GLUT_DOWN:
-        fire_cannons()
+        fireCannons()
 
 
 def setupCamera():
@@ -993,8 +983,8 @@ def showScreen():
     glLoadIdentity()
     glViewport(0, 0, 1000, 800)
     setupCamera()
-    draw_ocean()
-    drawShip()
+    drawOcean()
+    draw_ship()
     
     # Draw wave if active
     if wave_active:
@@ -1009,7 +999,7 @@ def showScreen():
         draw_range_indicator('right')
     
     for ball in cannonballs:
-        draw_cannonball(ball)
+        drawCannonball(ball)
     
     if storm_active:
         drawRain()
@@ -1061,14 +1051,15 @@ def idleWithKeys():
         glutPostRedisplay()
         return
     
-    updateShipMovement()
-    updateStorm()
-    applyStormDamage()
+    update_continuous_keys()
+    update_ship_movement()
+    update_storm_system()
+    apply_storm_damage()
     updateSinking()
-    update_cannonballs()
+    updateCannonballs()
     update_wave()
-    updateEnemyAi()
-    check_cannonball_hits()
+    update_enemy_ai()
+    checkCannonballHits()
     if storm_active:
         updateRain()
     glutPostRedisplay()
