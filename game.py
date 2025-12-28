@@ -126,7 +126,6 @@ def updateRain():
 
 
 def drawCannonball(ball):
-    """Draw a single cannonball"""
     glPushMatrix()
     glTranslatef(ball['pos'][0], ball['pos'][1], ball['pos'][2])
     glColor3f(0.2, 0.2, 0.2)  # Dark gray/black
@@ -138,7 +137,7 @@ def drawEnemyShip(enemy):
     drawShip(x=enemy['x'], y=enemy['y'], z=enemy['z'], rotation=enemy['rotation'], hull_color=(0.6, 0.15, 0.15), bow_color=(0.5, 0.1, 0.1), sail_color=(0.9, 0.7, 0.7), mast_count=1, sail_state_override=2)
 
 
-def draw_range_indicator(direction):
+def drawRangeIndicator(direction):
     rad = math.radians(ship_rotation)
     forward_x = math.cos(rad)
     forward_y = math.sin(rad)
@@ -183,7 +182,7 @@ def draw_range_indicator(direction):
     glEnd()
 
 
-def draw_wave():
+def drawWave():
     if not wave_active:
         return
 
@@ -467,15 +466,14 @@ def updateEnemyAi():
             enemy['y'] += perp_y * enemy_speed * 0.3
 
         if distance <= enemy_attack_range:# enemy attack if in range
-            fire_enemy_cannons(enemy)
+            fireEnemyCannons(enemy)
     
     for enemy in remove_enemy: #remove after enemy_list sunk
         if enemy in enemy_list:
             enemy_list.remove(enemy)
 
 
-def fire_enemy_cannons(enemy):
-    """Fire cannons from enemy ship toward player"""
+def fireEnemyCannons(enemy):
     current_time = time.time()
     if current_time - enemy['last_fire_time'] < enemy_fire_cooldown:
         return
@@ -510,7 +508,7 @@ def fire_enemy_cannons(enemy):
         
         cannonballs.append({
             'pos': [final_cannon_x, final_cannon_y, final_cannon_z],
-            'dir': [dir_x, dir_y, 0.0],
+            'dir': [x_dir, y_dir, 0.0],
             'travelled': 0.0,
             'enemy_shot': True  # Mark as enemy shot
         })
@@ -521,7 +519,7 @@ def fire_enemy_cannons(enemy):
         
         cannonballs.append({
             'pos': [final_cannon_x, final_cannon_y, final_cannon_z],
-            'dir': [dir_x, dir_y, 0.0],
+            'dir': [x_dir, y_dir, 0.0],
             'travelled': 0.0,
             'enemy_shot': True
         })
@@ -813,7 +811,6 @@ def applyStormDamage():
 
 
 def updateSinking():
-    """Gradually sink the ship into the ocean"""
     global ship_z, ship_speed
     
     if not ship_sinking:
@@ -845,7 +842,7 @@ def spawn_wave():
     wave_active = True
 
 
-def update_wave():
+def updateWave():
     global wave_active, wave_x, wave_y, ship_health, last_wave_damage_time
     if not wave_active:
         return
@@ -854,7 +851,7 @@ def update_wave():
     wave_x += wave_direction_x * wave_speed
     wave_y += wave_direction_y * wave_speed
     
-    check_wave_collision()
+    checkWaveCollision()
     
     # Remove wave if it has passed the ship
     dist_to_ship = math.sqrt((wave_x - ship_x)**2 + (wave_y - ship_y)**2)
@@ -862,7 +859,7 @@ def update_wave():
         wave_active = False
 
 
-def check_wave_collision():
+def checkWaveCollision():
     global ship_health, last_wave_damage_time, wave_active
     
     if not wave_active:
@@ -937,19 +934,19 @@ def showScreen():
     glViewport(0, 0, 1000, 800)
     setupCamera()
     drawOcean()
-    draw_ship()
+    drawShip()
     
     # Draw wave if active
     if wave_active:
-        draw_wave()
+        drawWave()
     
     for enemy in enemy_list:
         drawEnemyShip(enemy)
     # Draw range indicator when aiming
     if aiming_left:
-        draw_range_indicator('left')
+        drawRangeIndicator('left')
     if aiming_right:
-        draw_range_indicator('right')
+        drawRangeIndicator('right')
     
     for ball in cannonballs:
         drawCannonball(ball)
@@ -1004,14 +1001,13 @@ def idleWithKeys():
         glutPostRedisplay()
         return
     
-    update_continuous_keys()
-    update_ship_movement()
-    update_storm_system()
-    apply_storm_damage()
+    updateShipMovement()
+    updateStorm()
+    applyStormDamage()
     updateSinking()
     updateCannonballs()
-    update_wave()
-    update_enemy_ai()
+    updateWave()
+    updateEnemyAi()
     checkCannonballHits()
     if storm_active:
         updateRain()
