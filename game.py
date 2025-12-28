@@ -7,10 +7,10 @@ import random
 import time
 
 camera_pos = (0, 500, 500)
-camera_distance = 500
+camera_distance = 400
 camera_angle = 0
 
-fovY = 120  # Field of view
+fovY = 100  # Field of view
 GRID_LENGTH = 600  # Length of grid lines
 
 ship_x = 0
@@ -80,8 +80,8 @@ bow_width = 63
 bow_height = 35
 
 cannon_positions = [80, 30, -20, -70]
-cannon_length = 25
-cannon_offset = 80
+cannon_length = 40
+cannon_offset = 100
 
 NO_SAIL_SPEED = 0
 HALF_SAIL_SPEED = 4
@@ -714,7 +714,7 @@ def updateShipMovement():
 
 
 def keyboardListener(key, x, y):
-    global sail_state
+    global sail_state, ship_rotation
     if ship_sinking:
         if key == b'r':
             resetGame()
@@ -729,10 +729,16 @@ def keyboardListener(key, x, y):
             sail_state -= 1
     
     if key == b'a':#turn left
-        pass  # Handled in specialKeyListener for continuous turning
+        if ship_speed > 0:  # Can only turn when ship is moving
+            ship_rotation += TURN_SPEED
+            if ship_rotation >= 360:
+                ship_rotation -= 360
     
     if key == b'd':#turn right
-        pass  # Handled in specialKeyListener for continuous turning
+        if ship_speed > 0:  # Can only turn when ship is moving
+            ship_rotation -= TURN_SPEED
+            if ship_rotation < 0:
+                ship_rotation += 360
     
     if key == b'r':#reset
         resetGame()
@@ -828,9 +834,9 @@ def applyStormDamage():
     current_time = time.time()
     if current_time - last_damage_time >= 1.0:#damage every sec
         if sail_state == 2:  # Full sail
-            ship_health -= 5
-        elif sail_state == 1:  # Half sail
             ship_health -= 2
+        elif sail_state == 1:  # Half sail
+            ship_health -= 1
         last_damage_time = current_time
         
         if ship_health <= 0:#destroyed check
@@ -1017,9 +1023,9 @@ def showScreen():
     elif storm_active:
         drawText(10, 710, "STORM ACTIVE!")
         if sail_state == 2:
-            drawText(10, 680, "Full Sail: -5 HP/sec")
+            drawText(10, 680, "Full Sail: -2 HP/sec")
         elif sail_state == 1:
-            drawText(10, 680, "Half Sail: -2 HP/sec")
+            drawText(10, 680, "Half Sail: -1 HP/sec")
     glutSwapBuffers()
 keys_pressed = set()
 
@@ -1049,35 +1055,12 @@ def keyboardUp(key, x, y):
         aiming_right = False
 
 
-def updateContinuousKeys():
-    global ship_rotation
-    
-    # Can't turn when sinking
-    if ship_sinking:
-        return
-    
-    # Can only turn when ship is moving
-    if ship_speed > 0:
-        # Turn left (A key)
-        if b'a' in keys_pressed:
-            ship_rotation += TURN_SPEED
-            if ship_rotation >= 360:
-                ship_rotation -= 360
-        
-        # Turn right (D key)
-        if b'd' in keys_pressed:
-            ship_rotation -= TURN_SPEED
-            if ship_rotation < 0:
-                ship_rotation += 360
-
-
 def idleWithKeys():
     if ship_sinking:
         updateSinking()
         glutPostRedisplay()
         return
     
-    updateContinuousKeys()
     updateShipMovement()
     updateStorm()
     applyStormDamage()
