@@ -40,7 +40,6 @@ Computer Graphics (CSE423) Project
   * After an enemy ship is destroyed
 * Storm effects include:
 
-  * Rain from a random direction (angular rain animation)
   * Darkened sky visuals
   * **Full Sail**: Ship takes **5 damage per second**
 
@@ -57,7 +56,7 @@ Computer Graphics (CSE423) Project
 
 ---
 
-### 5. Infinite Ocean & Spawning System
+### 5. Infinite Ocean & Camera view
 
 * Infinite ocean using procedural, tile-based grid rendering
 * Ocean tiles repeat seamlessly
