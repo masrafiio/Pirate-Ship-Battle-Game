@@ -54,6 +54,7 @@ enemy_speed = 2.0
 enemy_attack_range = 400
 enemy_optimal_distance = 300
 enemy_fire_cooldown = 2.0
+enemy_turn_speed = 3.0
 
 # Aiming range indicator
 aiming_left = False
@@ -66,13 +67,15 @@ wave_y = 0
 wave_z = 0
 wave_direction_x = 0
 wave_direction_y = 1
-wave_speed = 20.0
-wave_spawn_distance = 5400
-wave_width = 5000
+wave_speed = 8.0
+wave_spawn_distance = 4000
+wave_width = 6000
+wave_depth = 400
 wave_height = 150
 wave_damage = 15
 last_wave_damage_time = 0
 wave_damage_cooldown = 1.0
+wave_has_damaged = False
 
 #Bow
 bow_back_x = 147
@@ -86,8 +89,8 @@ cannon_length = 40
 cannon_offset = 100
 
 NO_SAIL_SPEED = 0
-HALF_SAIL_SPEED = 4
-FULL_SAIL_SPEED = 6
+HALF_SAIL_SPEED = 7.5
+FULL_SAIL_SPEED = 15
 TURN_SPEED = 2
 
 def initRain():
@@ -166,18 +169,21 @@ def drawRangeIndicator(direction):
     glVertex3f(end_x, end_y, end_z)
     glEnd()
     glLineWidth(1.0)
-    arrow_size = 100
+    arrow_size = 50
     
-    perp_x = -y_dir
-    perp_y = x_dir
     glBegin(GL_TRIANGLES)
-    glVertex3f(end_x, end_y, end_z)
-    glVertex3f(end_x - x_dir * arrow_size + perp_x * arrow_size * 0.3, 
-               end_y - y_dir * arrow_size + perp_y * arrow_size * 0.3, 
+    # Tip pointing in firing direction
+    glVertex3f(end_x, 
+               end_y, 
                end_z)
-    glVertex3f(end_x - x_dir * arrow_size - perp_x * arrow_size * 0.3, 
-               end_y - y_dir * arrow_size - perp_y * arrow_size * 0.3, 
-               end_z)
+    # Bottom back
+    glVertex3f(end_x - x_dir * arrow_size * 0.6, 
+               end_y - y_dir * arrow_size * 0.6, 
+               end_z - arrow_size/2)
+    # Top back
+    glVertex3f(end_x - x_dir * arrow_size * 0.6, 
+               end_y - y_dir * arrow_size * 0.6, 
+               end_z + arrow_size/2)
     glEnd()
 
 
@@ -188,36 +194,48 @@ def drawWave():
     glColor4f(0.0, 0.4, 1.0, 0.9) 
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    
+    # Perpendicular to wave direction (for width)
     perp_x = -wave_direction_y
     perp_y = wave_direction_x
     half_width = wave_width / 2
+    half_depth = wave_depth / 2
     
-    # Bottom front
-    x1_bottom = wave_x - perp_x * half_width
-    y1_bottom = wave_y - perp_y * half_width
-    z1_bottom = 0
+    # Front face (leading edge)
+    x1_front = wave_x - perp_x * half_width + wave_direction_x * half_depth
+    y1_front = wave_y - perp_y * half_width + wave_direction_y * half_depth
+    x2_front = wave_x + perp_x * half_width + wave_direction_x * half_depth
+    y2_front = wave_y + perp_y * half_width + wave_direction_y * half_depth
     
-    # Bottom back
-    x2_bottom = wave_x + perp_x * half_width
-    y2_bottom = wave_y + perp_y * half_width
-    z2_bottom = 0
+    # Back face (trailing edge)
+    x1_back = wave_x - perp_x * half_width - wave_direction_x * half_depth
+    y1_back = wave_y - perp_y * half_width - wave_direction_y * half_depth
+    x2_back = wave_x + perp_x * half_width - wave_direction_x * half_depth
+    y2_back = wave_y + perp_y * half_width - wave_direction_y * half_depth
     
-    # Top front
-    x1_top = wave_x - perp_x * half_width
-    y1_top = wave_y - perp_y * half_width
-    z1_top = wave_height
-    
-    # Top back
-    x2_top = wave_x + perp_x * half_width
-    y2_top = wave_y + perp_y * half_width
-    z2_top = wave_height
-    
-    # Draw the wave wall as quad
+    # Draw front face
     glBegin(GL_QUADS)
-    glVertex3f(x1_bottom, y1_bottom, z1_bottom)
-    glVertex3f(x2_bottom, y2_bottom, z2_bottom)
-    glVertex3f(x2_top, y2_top, z2_top)
-    glVertex3f(x1_top, y1_top, z1_top)
+    glVertex3f(x1_front, y1_front, 0)
+    glVertex3f(x2_front, y2_front, 0)
+    glVertex3f(x2_front, y2_front, wave_height)
+    glVertex3f(x1_front, y1_front, wave_height)
+    glEnd()
+    
+    # Draw back face
+    glBegin(GL_QUADS)
+    glVertex3f(x2_back, y2_back, 0)
+    glVertex3f(x1_back, y1_back, 0)
+    glVertex3f(x1_back, y1_back, wave_height)
+    glVertex3f(x2_back, y2_back, wave_height)
+    glEnd()
+    
+    # Draw top face
+    glColor4f(0.0, 0.5, 1.0, 0.7)
+    glBegin(GL_QUADS)
+    glVertex3f(x1_back, y1_back, wave_height)
+    glVertex3f(x1_front, y1_front, wave_height)
+    glVertex3f(x2_front, y2_front, wave_height)
+    glVertex3f(x2_back, y2_back, wave_height)
     glEnd()
     
     glDisable(GL_BLEND)
@@ -449,25 +467,54 @@ def updateEnemyAi():
         y_dir = dy / distance
         
         angle_to_player = math.degrees(math.atan2(dy, dx))#calc angle
-        if distance > enemy_optimal_distance + 50: #change position of enemy
+        
+        # Determine target rotation based on distance
+        if distance > enemy_optimal_distance + 50:
+            target_rotation = angle_to_player
             enemy['x'] += x_dir * enemy_speed
             enemy['y'] += y_dir * enemy_speed
-            enemy['rotation'] = angle_to_player
         elif distance < enemy_optimal_distance - 50:
+            target_rotation = angle_to_player + 180
             enemy['x'] -= x_dir * enemy_speed
             enemy['y'] -= y_dir * enemy_speed
-            enemy['rotation'] = angle_to_player + 180
-        else: #at perfect dist, rotate to shoot 
-            enemy['rotation'] = angle_to_player + 90 
-            perp_x = -y_dir #move to get goog position
+        else:
+            target_rotation = angle_to_player + 90
+            perp_x = -y_dir
             perp_y = x_dir
             enemy['x'] += perp_x * enemy_speed * 0.3
             enemy['y'] += perp_y * enemy_speed * 0.3
-
-        if distance <= enemy_attack_range:# enemy attack if in range
-            fireEnemyCannons(enemy)
+        
+        angle_diff = target_rotation - enemy['rotation']
+        while angle_diff > 180:
+            angle_diff -= 360
+        while angle_diff < -180:
+            angle_diff += 360
+        
+        # Rotate gradually
+        if abs(angle_diff) > enemy_turn_speed:
+            if angle_diff > 0:
+                enemy['rotation'] += enemy_turn_speed
+            else:
+                enemy['rotation'] -= enemy_turn_speed
+        else:
+            enemy['rotation'] = target_rotation
+        
+        enemy['rotation'] = enemy['rotation'] % 360
+        
+        if distance <= enemy_attack_range and abs(distance - enemy_optimal_distance) < 100:
+            broadside_angle = angle_to_player + 90
+            broadside_angle = broadside_angle % 360
+            
+            rotation_diff = broadside_angle - enemy['rotation']
+            while rotation_diff > 180:
+                rotation_diff -= 360
+            while rotation_diff < -180:
+                rotation_diff += 360
+            
+            if abs(rotation_diff) < 15:
+                fireEnemyCannons(enemy)
     
-    for enemy in remove_enemy: #remove after enemy_list sunk
+    for enemy in remove_enemy:
         if enemy in enemy_list:
             enemy_list.remove(enemy)
 
@@ -479,7 +526,6 @@ def fireEnemyCannons(enemy):
     
     enemy['last_fire_time'] = current_time
     
-    # Calculate direction from enemy to player
     dx = ship_x - enemy['x']
     dy = ship_y - enemy['y']
     distance = math.sqrt(dx * dx + dy * dy)
@@ -487,7 +533,6 @@ def fireEnemyCannons(enemy):
     if distance < 1:
         return
     
-    # Normalize direction
     x_dir = dx / distance
     y_dir = dy / distance
     
@@ -498,7 +543,6 @@ def fireEnemyCannons(enemy):
     right_x = math.sin(rad)
     right_y = -math.cos(rad)
     
-    # Fire from both sides (2 cannons per side for enemy_list)
     for x_pos in [60, -60]:
         # Right side
         final_cannon_x = enemy['x'] + x_pos * forward_x + 70 * right_x
@@ -556,7 +600,7 @@ def checkCannonballHits():
                 dist = math.sqrt(dx*dx + dy*dy + dz*dz)
                 
                 if dist < 100:  # Hit detection radius for player
-                    ship_health -= 10
+                    ship_health -= 2.5
                     balls_to_remove.append(ball)
                     
                     if ship_health <= 0:
@@ -672,6 +716,55 @@ def updateShipMovement():
         rad = math.radians(ship_rotation)
         ship_x += ship_speed * math.cos(rad)
         ship_y += ship_speed * math.sin(rad)
+        
+        # Check for ramming collisions
+        checkRammingCollision()
+
+
+def checkRammingCollision():
+    global ship_speed, sail_state
+    
+    if ship_sinking:
+        return
+    
+    # Calculate bow position in world coordinates
+    rad = math.radians(ship_rotation)
+    forward_x = math.cos(rad)
+    forward_y = math.sin(rad)
+    
+    # Bow tip position (front of the ship)
+    bow_tip_world_x = ship_x + bow_tip_x * forward_x
+    bow_tip_world_y = ship_y + bow_tip_x * forward_y
+    
+    # Check collision with each enemy
+    for enemy in enemy_list:
+        if enemy['sinking']:
+            continue
+        
+        # Calculate distance from bow tip to enemy center
+        dx = bow_tip_world_x - enemy['x']
+        dy = bow_tip_world_y - enemy['y']
+        dist = math.sqrt(dx * dx + dy * dy)
+        enemy_collision_radius = 120
+        
+        if dist < enemy_collision_radius:
+            to_enemy_x = enemy['x'] - ship_x
+            to_enemy_y = enemy['y'] - ship_y
+            to_enemy_dist = math.sqrt(to_enemy_x * to_enemy_x + to_enemy_y * to_enemy_y)
+            
+            if to_enemy_dist > 0:
+                to_enemy_x /= to_enemy_dist
+                to_enemy_y /= to_enemy_dist
+                dot = forward_x * to_enemy_x + forward_y * to_enemy_y
+                
+                if dot > 0.7:
+                    enemy['health'] = 0
+                    enemy['sinking'] = True
+                    ship_speed = 0
+                    sail_state = 0
+                    
+                    print(f"RAMMING ATTACK! Enemy ship destroyed!")
+                    return
 
 
 def keyboardListener(key, x, y):
@@ -690,13 +783,13 @@ def keyboardListener(key, x, y):
             sail_state -= 1
     
     if key == b'a':#turn left
-        if ship_speed > 0:  # Can only turn when ship is moving
+        if ship_speed > 0:
             ship_rotation += TURN_SPEED
             if ship_rotation >= 360:
                 ship_rotation -= 360
     
     if key == b'd':#turn right
-        if ship_speed > 0:  # Can only turn when ship is moving
+        if ship_speed > 0:
             ship_rotation -= TURN_SPEED
             if ship_rotation < 0:
                 ship_rotation += 360
@@ -822,19 +915,23 @@ def updateSinking():
 
 
 def spawn_wave():
-    global wave_active, wave_x, wave_y, wave_direction_x, wave_direction_y
-    ship_rad = math.radians(ship_rotation)
-    random_offset = random.uniform(-90, 90)
-    attack_angle = ship_rad + math.radians(random_offset)
-
-    # Spawn direction
-    spawn_x_dir = math.cos(attack_angle)
-    spawn_y_dir = math.sin(attack_angle)
+    global wave_active, wave_x, wave_y, wave_direction_x, wave_direction_y, wave_has_damaged
+    # Spawn wave in random direction around the ship
+    random_angle = random.uniform(0, 360)
+    angle_rad = math.radians(random_angle)
+    
+    # Wave spawns at random direction from ship
+    spawn_x_dir = math.cos(angle_rad)
+    spawn_y_dir = math.sin(angle_rad)
+    
     wave_x = ship_x + spawn_x_dir * wave_spawn_distance
     wave_y = ship_y + spawn_y_dir * wave_spawn_distance
+    
+    # Wave moves toward the ship
     wave_direction_x = -spawn_x_dir
     wave_direction_y = -spawn_y_dir
     wave_active = True
+    wave_has_damaged = False  # Reset damage flag for new wave
 
 
 def updateWave():
@@ -848,41 +945,52 @@ def updateWave():
     
     checkWaveCollision()
     
-    # Remove wave if it has passed the ship
+    # Remove wave if it has passed far beyond the ship
     dist_to_ship = math.sqrt((wave_x - ship_x)**2 + (wave_y - ship_y)**2)
-    if dist_to_ship < 100:
+    if dist_to_ship < 100 or dist_to_ship > wave_spawn_distance + 1000:
         wave_active = False
 
 
 def checkWaveCollision():
-    global ship_health, last_wave_damage_time, wave_active
+    global ship_health, last_wave_damage_time, wave_active, ship_sinking, wave_has_damaged
     
-    if not wave_active:
+    if not wave_active or ship_sinking or wave_has_damaged:
         return
     
+    # Calculate distance to wave center
     dist_to_wave = math.sqrt((wave_x - ship_x)**2 + (wave_y - ship_y)**2)
     
-    if dist_to_wave < 150:
+    # Check if ship is within collision range (considering wave depth)
+    collision_range = wave_depth / 2 + 250  # Ship size consideration
+    
+    if dist_to_wave < collision_range:
+        # Get ship's forward direction
         ship_rad = math.radians(ship_rotation)
         ship_forward_x = math.cos(ship_rad)
         ship_forward_y = math.sin(ship_rad)
         
+        # Normalize wave direction
         wave_mag = math.sqrt(wave_direction_x**2 + wave_direction_y**2)
         if wave_mag > 0:
-            norm_wave_x_dir = wave_direction_x / wave_mag
-            norm_wave_y_dir = wave_direction_y / wave_mag
+            norm_wave_x = wave_direction_x / wave_mag
+            norm_wave_y = wave_direction_y / wave_mag
         else:
             return
 
-        dot_product = ship_forward_x * norm_wave_x_dir + ship_forward_y * norm_wave_y_dir
+        dot_product = ship_forward_x * norm_wave_x + ship_forward_y * norm_wave_y
         angle_rad = math.acos(max(-1, min(1, dot_product)))
         angle_deg = math.degrees(angle_rad)
-        
-        if angle_deg > 30:
-            current_time = time.time()
-            if current_time - last_wave_damage_time >= wave_damage_cooldown:
-                ship_health -= wave_damage
-                last_wave_damage_time = current_time
+        wave_has_damaged = True
+
+        if angle_deg < 150:
+            ship_health -= wave_damage
+            print(f"Wave hit! Angle: {angle_deg:.1f}° - Damage: {wave_damage} HP")
+            
+            if ship_health <= 0:
+                ship_health = 0
+                ship_sinking = True
+        else:
+            print(f"Wave passed! Angle: {angle_deg:.1f}° - Head-on, no damage")
 
 
 def resetGame():
@@ -914,6 +1022,7 @@ def resetGame():
     
     wave_active = False
     last_wave_damage_time = 0
+    wave_has_damaged = False
     print("Game reset!")
     enemy_list.clear()
 

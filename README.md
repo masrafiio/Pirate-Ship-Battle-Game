@@ -6,6 +6,60 @@ Computer Graphics (CSE423) Project
 
 ---
 
+## Game Rules
+
+* After **30 seconds** of gameplay, a storm begins
+* Storm lasts **10 seconds**
+* After the storm ends, an enemy ship spawns
+* Destroying the enemy triggers the next storm
+* This cycle repeats continuously
+
+---
+
+## Controls Summary
+
+| Key        | Action                 |
+| ---------- | ---------------------- |
+| W / S      | Raise / Lower sails    |
+| A / D      | Turn ship left / right |
+| Q          | Aim left cannons       |
+| E          | Aim right cannons      |
+| Left Click | Fire cannons           |
+| R          | Reset game             |
+| Arrow Keys | Camera control         |
+| Esc        | Exit Game              |
+
+---
+
+## Default Game Assets
+
+### Ship Model
+
+* **Hull**: Cuboid
+* **Mast**: Cylinder
+* **Sail**: Quad/Triangle (size changes with sail state)
+* **Cannons**: Small cylinders mounted on both sides
+
+---
+
+### Ocean
+
+* Flat grid with animated wave texture
+* Color states:
+
+  * Blue-green (normal)
+  * Dark gray (during storm)
+
+---
+
+### Camera
+
+* Third-person camera behind the ship
+* **Up / Down Arrows** – Zoom in / out
+* **Left / Right Arrows** – Rotate camera around the ship
+
+---
+
 ## Core Gameplay Features
 
 ### 1. Ship Movement & Sailing Controls
@@ -102,59 +156,5 @@ Computer Graphics (CSE423) Project
   * Appears as a tall wall of water
   * **Head-on hit (±30°)**: Safe
   * **Side hit**: Ship takes **15 damage**
-
----
-
-## Game Rules
-
-* After **30 seconds** of gameplay, a storm begins
-* Storm lasts **10 seconds**
-* After the storm ends, an enemy ship spawns
-* Destroying the enemy triggers the next storm
-* This cycle repeats continuously
-
----
-
-## Default Game Assets
-
-### Ship Model
-
-* **Hull**: Cuboid
-* **Mast**: Cylinder
-* **Sail**: Quad/Triangle (size changes with sail state)
-* **Cannons**: Small cylinders mounted on both sides
-
----
-
-### Ocean
-
-* Flat grid with animated wave texture
-* Color states:
-
-  * Blue-green (normal)
-  * Dark gray (during storm)
-
----
-
-### Camera
-
-* Third-person camera behind the ship
-* **Up / Down Arrows** – Zoom in / out
-* **Left / Right Arrows** – Rotate camera around the ship
-
----
-
-## Controls Summary
-
-| Key        | Action                 |
-| ---------- | ---------------------- |
-| W / S      | Raise / Lower sails    |
-| A / D      | Turn ship left / right |
-| Q          | Aim left cannons       |
-| E          | Aim right cannons      |
-| Left Click | Fire cannons           |
-| R          | Reset game             |
-| Arrow Keys | Camera control         |
-| Esc        | Exit Game              |
 
 ---
