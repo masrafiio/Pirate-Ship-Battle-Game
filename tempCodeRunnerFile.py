@@ -1,1 +1,0 @@
- + arrow_size * 0.5
